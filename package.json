@@ -1,0 +1,33 @@
+{
+  "name": "study-hub",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "@tiptap/extension-link": "^2.6.6",
+    "@tiptap/extension-placeholder": "^2.6.6",
+    "@tiptap/extension-table": "^2.6.6",
+    "@tiptap/extension-table-cell": "^2.6.6",
+    "@tiptap/extension-table-header": "^2.6.6",
+    "@tiptap/extension-table-row": "^2.6.6",
+    "@tiptap/extension-text-align": "^2.6.6",
+    "@tiptap/extension-underline": "^2.6.6",
+    "@tiptap/react": "^2.6.6",
+    "@tiptap/starter-kit": "^2.6.6",
+    "next": "14.2.15",
+    "next-pwa": "^5.6.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13"
+  }
+}
