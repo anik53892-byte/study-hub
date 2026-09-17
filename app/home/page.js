@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   fetchFolders,
+  fetchFolderItemCounts,
   createFolder,
   updateFolder,
   deleteFolder,
@@ -15,7 +16,7 @@ import {
 } from "@/lib/db";
 import { withRetry } from "@/lib/retry";
 import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
-import { PALETTE, ICONS, autoColor } from "@/lib/colors";
+import { PALETTE, ICONS, autoColor, autoIcon } from "@/lib/colors";
 import { useAuth } from "@/lib/useAuth";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import FolderCard from "@/components/FolderCard";
@@ -26,15 +27,15 @@ import { EmptyState, CardSkeleton } from "@/components/EmptyState";
 
 const MESSAGES = [
   "আজকের একটু পড়াই আগামীকালের বড় পরিবর্তন।",
-  "Small steps today build big results tomorrow.",
-  "One page a day keeps doubts away.",
-  "Focus for 10 minutes — momentum does the rest.",
-  "Consistency beats intensity. Keep going.",
+  "স্বপ্ন পূরণের পথ শুরু হয় আজ থেকেই।",
+  "প্রতিদিনের ছোট চেষ্টা বড় সাফল্যের চাবিকাঠি।",
+  "মনোযোগ দাও, অর্জন আসবেই।",
+  "ধৈর্য আর অধ্যবসায়ই সাফল্যের রহস্য।",
+  "নিজের উপর বিশ্বাস রাখো, তুমি পারবে।",
 ];
 
-function isBangla(text) {
-  return /[\u0980-\u09FF]/.test(text);
-}
+// gold, rose, lavender, mint, sky blue, peach
+const QUOTE_COLORS = ["text-amber-700", "text-rose-600", "text-violet-600", "text-teal-600", "text-sky-600", "text-orange-500"];
 
 export default function HomePage() {
   const router = useRouter();
@@ -42,6 +43,7 @@ export default function HomePage() {
   const isOwner = !!user;
 
   const [folders, setFolders] = useState(null);
+  const [counts, setCounts] = useState({});
   const [msgIndex, setMsgIndex] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
   const [menuFolder, setMenuFolder] = useState(null);
@@ -51,7 +53,7 @@ export default function HomePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const t = setInterval(() => setMsgIndex((i) => (i + 1) % MESSAGES.length), 6000);
+    const t = setInterval(() => setMsgIndex((i) => (i + 1) % MESSAGES.length), 4000);
     return () => clearInterval(t);
   }, []);
 
@@ -59,13 +61,15 @@ export default function HomePage() {
     load();
   }, []);
 
-  useRealtimeRefresh(["folders"], load);
+  useRealtimeRefresh(["folders", "lessons"], load);
 
   async function load() {
     try {
       setError("");
       const data = await withRetry(() => fetchFolders(null));
       setFolders(data);
+      const c = await fetchFolderItemCounts(data.map((f) => f.id));
+      setCounts(c);
     } catch {
       setError("Couldn't load your folders. Check your connection.");
     }
@@ -79,25 +83,28 @@ export default function HomePage() {
   return (
     <div className="min-h-screen pb-28 relative">
       <LiveBackground />
-      <Breadcrumbs trail={[{ href: "/home", label: "Home" }]} isOwner={isOwner} onLogout={handleLogout} showSearch />
+      <Breadcrumbs
+        trail={[{ href: "/home", label: "Home" }]}
+        isOwner={isOwner}
+        onLogout={handleLogout}
+        showSearch
+        variant="glass"
+      />
 
       <div className="max-w-2xl mx-auto px-4 pt-6">
-        <div key={msgIndex} className="text-center animate-fadeIn min-h-[3.5rem] flex items-center justify-center px-2">
-          {isBangla(MESSAGES[msgIndex]) ? (
-            <p className="font-serif italic text-lg sm:text-xl text-violet-700/90 leading-snug relative inline-block">
-              <span className="text-violet-300 mr-1">“</span>
-              {MESSAGES[msgIndex]}
-              <span className="text-violet-300 ml-1">”</span>
-              <span className="block h-0.5 w-16 mx-auto mt-2 rounded-full bg-gradient-to-r from-violet-300 via-sky-300 to-amber-300" />
-            </p>
-          ) : (
-            <p className="text-sm text-violet-600/80">{MESSAGES[msgIndex]}</p>
-          )}
+        {/* Quote card */}
+        <div className="bg-white/25 backdrop-blur-xl border border-white/30 rounded-3xl shadow-lg px-5 py-4 mb-5">
+          <p
+            key={msgIndex}
+            className={`text-center font-serif italic text-base sm:text-lg leading-snug animate-fadeIn transition-colors duration-700 ${QUOTE_COLORS[msgIndex % QUOTE_COLORS.length]}`}
+          >
+            “{MESSAGES[msgIndex]}”
+          </p>
         </div>
 
-        <h1 className="text-xl font-semibold mt-4 mb-3 px-1">📚 My Study</h1>
+        <h1 className="text-xl font-semibold mt-2 mb-3 px-1 text-white drop-shadow-sm">📚 My Study</h1>
 
-        {error && <p className="text-sm text-rose-500 px-1 mb-3">{error}</p>}
+        {error && <p className="text-sm text-rose-100 bg-rose-500/40 backdrop-blur rounded-xl px-3 py-2 mb-3">{error}</p>}
 
         {folders === null && <CardSkeleton />}
 
@@ -111,6 +118,7 @@ export default function HomePage() {
               <FolderCard
                 key={f.id}
                 folder={f}
+                count={counts[f.id]}
                 onOpen={(folder) => router.push(`/folder/${folder.id}`)}
                 onMenu={isOwner ? (folder) => setMenuFolder(folder) : null}
               />
@@ -122,7 +130,8 @@ export default function HomePage() {
       {isOwner && (
         <button
           onClick={() => setAddOpen(true)}
-          className="fixed bottom-6 right-6 sm:right-1/2 sm:translate-x-[calc(18rem)] bg-violet-500 text-white rounded-full px-5 py-3 shadow-lg shadow-violet-300 text-sm font-medium active:scale-95 transition"
+          className="fixed bottom-6 right-6 sm:right-1/2 sm:translate-x-[calc(18rem)] text-white rounded-full px-5 py-3 text-sm font-medium active:scale-95 transition
+            bg-gradient-to-r from-fuchsia-500 via-pink-500 to-violet-500 shadow-[0_0_25px_rgba(236,72,153,0.6)]"
         >
           + Add Folder
         </button>
@@ -135,6 +144,7 @@ export default function HomePage() {
         onCreate={async (payload) => {
           const created = await createFolder({ ...payload, parentId: null });
           setFolders((prev) => [...(prev || []), created]);
+          setCounts((prev) => ({ ...prev, [created.id]: 0 }));
           setAddOpen(false);
         }}
       />
@@ -149,6 +159,7 @@ export default function HomePage() {
               const copy = await duplicateFolder(menuFolder.id);
               setFolders((prev) => [...(prev || []), copy]);
               setMenuFolder(null);
+              load();
             }}
           />
           <MenuButton label="➡️ Move to…" onClick={() => setMoveOpen(true)} />
@@ -249,7 +260,7 @@ function MenuButton({ label, onClick, danger }) {
 function AddFolderModal({ open, existingCount, onClose, onCreate }) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(autoColor(existingCount));
-  const [icon, setIcon] = useState(ICONS[0]);
+  const [icon, setIcon] = useState(autoIcon(existingCount));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -257,7 +268,7 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
     if (open) {
       setName("");
       setColor(autoColor(existingCount));
-      setIcon(ICONS[0]);
+      setIcon(autoIcon(existingCount));
       setError("");
     }
   }, [open, existingCount]);
@@ -286,6 +297,7 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
           onChange={(e) => setName(e.target.value)}
           className="w-full rounded-xl border border-violet-100 bg-violet-50/40 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-violet-300"
         />
+        <p className="text-xs text-ink/40 -mb-2">Icon and color auto-picked — change if you like</p>
         <IconPicker value={icon} onChange={setIcon} />
         <ColorPicker value={color} onChange={setColor} />
         {error && <p className="text-sm text-rose-500">{error}</p>}
@@ -349,7 +361,7 @@ function EditFolderModal({ open, folder, onClose, onSave }) {
 
 function IconPicker({ value, onChange }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
       {ICONS.map((i) => (
         <button
           type="button"
