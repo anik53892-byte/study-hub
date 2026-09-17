@@ -10,6 +10,30 @@ export default function LiveBackground() {
         className="absolute bottom-0 left-1/4 w-64 h-64 rounded-full bg-amber-100/60 blur-3xl animate-drift"
         style={{ animationDelay: "4s" }}
       />
+      <div
+        className="absolute top-10 right-1/4 w-40 h-40 rounded-full bg-pink-100/50 blur-2xl animate-drift"
+        style={{ animationDelay: "1s" }}
+      />
+      <div
+        className="absolute bottom-1/4 right-10 w-52 h-52 rounded-full bg-emerald-100/40 blur-3xl animate-drift"
+        style={{ animationDelay: "3s" }}
+      />
+      {/* subtle floating sparkles */}
+      {[...Array(6)].map((_, i) => (
+        <span
+          key={i}
+          className="absolute text-violet-300/50 animate-floatSlow"
+          style={{
+            top: `${12 + i * 14}%`,
+            left: `${(i * 37) % 90}%`,
+            fontSize: `${10 + (i % 3) * 6}px`,
+            animationDelay: `${i * 0.8}s`,
+            animationDuration: `${6 + i}s`,
+          }}
+        >
+          ✦
+        </span>
+      ))}
     </div>
   );
 }
