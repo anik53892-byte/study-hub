@@ -41,6 +41,12 @@ module.exports = {
           "0%, 100%": { transform: "translate(0,0) scale(1)" },
           "50%": { transform: "translate(15px,-15px) scale(1.05)" },
         },
+        floatUp: {
+          "0%": { transform: "translateY(0) scale(1)", opacity: 0 },
+          "10%": { opacity: 1 },
+          "90%": { opacity: 1 },
+          "100%": { transform: "translateY(-110vh) scale(1.15)", opacity: 0 },
+        },
       },
       animation: {
         fadeIn: "fadeIn 0.4s ease-out both",
@@ -49,6 +55,7 @@ module.exports = {
         floatSlower: "floatSlower 9s ease-in-out infinite",
         colorWash: "colorWash 8s ease-in-out infinite",
         drift: "drift 10s ease-in-out infinite",
+        floatUp: "floatUp linear infinite",
       },
     },
   },
