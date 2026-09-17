@@ -1,0 +1,19 @@
+{
+  "name": "Study Hub",
+  "short_name": "Study Hub",
+  "description": "Your personal study space — synced across every device.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf8ff",
+  "theme_color": "#7c6cf0",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
