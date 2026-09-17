@@ -24,12 +24,19 @@ module.exports = {
           "85%": { opacity: 1, transform: "scale(1)" },
           "100%": { opacity: 0, transform: "scale(1.02)" },
         },
-      },
-      animation: {
-        fadeIn: "fadeIn 0.4s ease-out both",
-        introFade: "introFade 4s ease-in-out forwards",
-      },
-    },
-  },
-  plugins: [],
-};
+        floatSlow: {
+          "0%, 100%": { transform: "translate(0, 0)" },
+          "50%": { transform: "translate(20px, -30px)" },
+        },
+        floatSlower: {
+          "0%, 100%": { transform: "translate(0, 0)" },
+          "50%": { transform: "translate(-25px, 20px)" },
+        },
+        colorWash: {
+          "0%, 100%": { backgroundColor: "rgba(124,108,240,0.35)" },
+          "33%": { backgroundColor: "rgba(255,196,140,0.3)" },
+          "66%": { backgroundColor: "rgba(140,200,255,0.3)" },
+        },
+        drift: {
+          "0%, 100%": { transform: "translate(0,0) scale(1)" },
+          "50%": { transform: "translate(15px,-15px) scale(1.05
