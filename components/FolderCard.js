@@ -18,16 +18,18 @@ export default function FolderCard({ folder, onOpen, onMenu }) {
         flex flex-col justify-between cursor-pointer select-none transition-transform
         ${pressed ? "scale-[0.97]" : "scale-100"}`}
     >
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onMenu(folder);
-        }}
-        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/50 flex items-center justify-center text-sm"
-        aria-label="Folder options"
-      >
-        ⋮
-      </button>
+      {onMenu && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onMenu(folder);
+          }}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/50 flex items-center justify-center text-sm"
+          aria-label="Folder options"
+        >
+          ⋮
+        </button>
+      )}
       <div className="text-2xl">{folder.icon}</div>
       <div className="font-medium text-sm leading-snug pr-6 break-words">{folder.name}</div>
     </div>
