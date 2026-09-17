@@ -32,6 +32,10 @@ const MESSAGES = [
   "Consistency beats intensity. Keep going.",
 ];
 
+function isBangla(text) {
+  return /[\u0980-\u09FF]/.test(text);
+}
+
 export default function HomePage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -78,9 +82,18 @@ export default function HomePage() {
       <Breadcrumbs trail={[{ href: "/home", label: "Home" }]} isOwner={isOwner} onLogout={handleLogout} showSearch />
 
       <div className="max-w-2xl mx-auto px-4 pt-6">
-        <p key={msgIndex} className="text-center text-sm text-violet-600/80 animate-fadeIn min-h-[2.5rem]">
-          {MESSAGES[msgIndex]}
-        </p>
+        <div key={msgIndex} className="text-center animate-fadeIn min-h-[3.5rem] flex items-center justify-center px-2">
+          {isBangla(MESSAGES[msgIndex]) ? (
+            <p className="font-serif italic text-lg sm:text-xl text-violet-700/90 leading-snug relative inline-block">
+              <span className="text-violet-300 mr-1">“</span>
+              {MESSAGES[msgIndex]}
+              <span className="text-violet-300 ml-1">”</span>
+              <span className="block h-0.5 w-16 mx-auto mt-2 rounded-full bg-gradient-to-r from-violet-300 via-sky-300 to-amber-300" />
+            </p>
+          ) : (
+            <p className="text-sm text-violet-600/80">{MESSAGES[msgIndex]}</p>
+          )}
+        </div>
 
         <h1 className="text-xl font-semibold mt-4 mb-3 px-1">📚 My Study</h1>
 
