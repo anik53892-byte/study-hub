@@ -3,13 +3,26 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { fetchFolders, createFolder, updateFolder, deleteFolder } from "@/lib/db";
+import {
+  fetchFolders,
+  createFolder,
+  updateFolder,
+  deleteFolder,
+  duplicateFolder,
+  moveFolder,
+  fetchAllFolders,
+  invalidMoveTargets,
+} from "@/lib/db";
+import { withRetry } from "@/lib/retry";
+import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
 import { PALETTE, ICONS, autoColor } from "@/lib/colors";
+import { useAuth } from "@/lib/useAuth";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import FolderCard from "@/components/FolderCard";
+import LiveBackground from "@/components/LiveBackground";
 import { Modal, ConfirmDialog } from "@/components/Modal";
+import FolderPickerModal from "@/components/FolderPickerModal";
 import { EmptyState, CardSkeleton } from "@/components/EmptyState";
-import { useRequireAuth } from "@/lib/useRequireAuth";
 
 const MESSAGES = [
   "আজকের একটু পড়াই আগামীকালের বড় পরিবর্তন।",
@@ -20,13 +33,16 @@ const MESSAGES = [
 ];
 
 export default function HomePage() {
-  useRequireAuth();
   const router = useRouter();
+  const { user } = useAuth();
+  const isOwner = !!user;
+
   const [folders, setFolders] = useState(null);
   const [msgIndex, setMsgIndex] = useState(0);
   const [addOpen, setAddOpen] = useState(false);
   const [menuFolder, setMenuFolder] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [error, setError] = useState("");
 
@@ -39,24 +55,27 @@ export default function HomePage() {
     load();
   }, []);
 
+  useRealtimeRefresh(["folders"], load);
+
   async function load() {
     try {
       setError("");
-      const data = await fetchFolders();
+      const data = await withRetry(() => fetchFolders(null));
       setFolders(data);
-    } catch (e) {
+    } catch {
       setError("Couldn't load your folders. Check your connection.");
     }
   }
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    router.replace("/login");
+    router.refresh();
   }
 
   return (
-    <div className="min-h-screen pb-28">
-      <Breadcrumbs trail={[{ href: "/home", label: "Home" }]} onLogout={handleLogout} showSearch />
+    <div className="min-h-screen pb-28 relative">
+      <LiveBackground />
+      <Breadcrumbs trail={[{ href: "/home", label: "Home" }]} isOwner={isOwner} onLogout={handleLogout} showSearch />
 
       <div className="max-w-2xl mx-auto px-4 pt-6">
         <p key={msgIndex} className="text-center text-sm text-violet-600/80 animate-fadeIn min-h-[2.5rem]">
@@ -70,7 +89,7 @@ export default function HomePage() {
         {folders === null && <CardSkeleton />}
 
         {folders && folders.length === 0 && (
-          <EmptyState emoji="🗂️" title="No folders yet" subtitle="Create your first folder to get started" />
+          <EmptyState emoji="🗂️" title="No folders yet" subtitle={isOwner ? "Create your first folder to get started" : "Check back soon"} />
         )}
 
         {folders && folders.length > 0 && (
@@ -80,35 +99,46 @@ export default function HomePage() {
                 key={f.id}
                 folder={f}
                 onOpen={(folder) => router.push(`/folder/${folder.id}`)}
-                onMenu={(folder) => setMenuFolder(folder)}
+                onMenu={isOwner ? (folder) => setMenuFolder(folder) : null}
               />
             ))}
           </div>
         )}
       </div>
 
-      <button
-        onClick={() => setAddOpen(true)}
-        className="fixed bottom-6 right-6 sm:right-1/2 sm:translate-x-[calc(18rem)] bg-violet-500 text-white rounded-full px-5 py-3 shadow-lg shadow-violet-300 text-sm font-medium active:scale-95 transition"
-      >
-        + Add Folder
-      </button>
+      {isOwner && (
+        <button
+          onClick={() => setAddOpen(true)}
+          className="fixed bottom-6 right-6 sm:right-1/2 sm:translate-x-[calc(18rem)] bg-violet-500 text-white rounded-full px-5 py-3 shadow-lg shadow-violet-300 text-sm font-medium active:scale-95 transition"
+        >
+          + Add Folder
+        </button>
+      )}
 
       <AddFolderModal
         open={addOpen}
         existingCount={folders?.length || 0}
         onClose={() => setAddOpen(false)}
         onCreate={async (payload) => {
-          const created = await createFolder(payload);
+          const created = await createFolder({ ...payload, parentId: null });
           setFolders((prev) => [...(prev || []), created]);
           setAddOpen(false);
         }}
       />
 
-      <Modal open={!!menuFolder && !editOpen} onClose={() => setMenuFolder(null)} title={menuFolder?.name || ""}>
+      <Modal open={!!menuFolder && !editOpen && !moveOpen} onClose={() => setMenuFolder(null)} title={menuFolder?.name || ""}>
         <div className="space-y-2">
           <MenuButton label="📂 Open" onClick={() => router.push(`/folder/${menuFolder.id}`)} />
           <MenuButton label="✏️ Rename & recolor" onClick={() => setEditOpen(true)} />
+          <MenuButton
+            label="📄 Duplicate"
+            onClick={async () => {
+              const copy = await duplicateFolder(menuFolder.id);
+              setFolders((prev) => [...(prev || []), copy]);
+              setMenuFolder(null);
+            }}
+          />
+          <MenuButton label="➡️ Move to…" onClick={() => setMoveOpen(true)} />
           <MenuButton
             label="🗑️ Delete folder"
             danger
@@ -135,10 +165,24 @@ export default function HomePage() {
         }}
       />
 
+      <MoveFolderPicker
+        open={moveOpen}
+        folder={menuFolder}
+        onClose={() => {
+          setMoveOpen(false);
+          setMenuFolder(null);
+        }}
+        onMoved={(id) => {
+          setFolders((prev) => prev.filter((f) => f.id !== id));
+          setMoveOpen(false);
+          setMenuFolder(null);
+        }}
+      />
+
       <ConfirmDialog
         open={!!confirmDelete}
         title="Delete this folder?"
-        message={`"${confirmDelete?.name}" and everything inside it — all items and lessons — will be permanently deleted. This can't be undone.`}
+        message={`"${confirmDelete?.name}" and everything inside it — sub-folders and lessons — will be permanently deleted. This can't be undone.`}
         danger
         confirmLabel="Delete everything"
         onCancel={() => setConfirmDelete(null)}
@@ -149,6 +193,30 @@ export default function HomePage() {
         }}
       />
     </div>
+  );
+}
+
+function MoveFolderPicker({ open, folder, onClose, onMoved }) {
+  const [excludeIds, setExcludeIds] = useState(null);
+
+  useEffect(() => {
+    if (open && folder) {
+      fetchAllFolders().then((all) => setExcludeIds(invalidMoveTargets(all, folder.id)));
+    }
+  }, [open, folder]);
+
+  if (!folder) return null;
+
+  return (
+    <FolderPickerModal
+      open={open && excludeIds !== null}
+      onClose={onClose}
+      excludeIds={excludeIds}
+      onSelect={async (targetId) => {
+        await moveFolder(folder.id, targetId);
+        onMoved(folder.id);
+      }}
+    />
   );
 }
 
