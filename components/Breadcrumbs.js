@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-export default function Breadcrumbs({ trail, onLogout, showSearch }) {
+export default function Breadcrumbs({ trail, isOwner, onLogout, showSearch }) {
   const router = useRouter();
 
   return (
@@ -41,12 +41,21 @@ export default function Breadcrumbs({ trail, onLogout, showSearch }) {
             🔍
           </button>
         )}
-        {onLogout && (
+        {isOwner ? (
+          onLogout && (
+            <button
+              onClick={onLogout}
+              className="shrink-0 text-xs text-ink/40 px-2 py-1 rounded-lg hover:bg-violet-50"
+            >
+              Log out
+            </button>
+          )
+        ) : (
           <button
-            onClick={onLogout}
-            className="shrink-0 text-xs text-ink/40 px-2 py-1 rounded-lg hover:bg-violet-50"
+            onClick={() => router.push("/login")}
+            className="shrink-0 text-xs text-violet-400 px-2 py-1 rounded-lg hover:bg-violet-50"
           >
-            Log out
+            Admin
           </button>
         )}
       </div>
