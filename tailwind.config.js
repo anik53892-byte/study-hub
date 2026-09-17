@@ -39,4 +39,18 @@ module.exports = {
         },
         drift: {
           "0%, 100%": { transform: "translate(0,0) scale(1)" },
-          "50%": { transform: "translate(15px,-15px) scale(1.05
+          "50%": { transform: "translate(15px,-15px) scale(1.05)" },
+        },
+      },
+      animation: {
+        fadeIn: "fadeIn 0.4s ease-out both",
+        introFade: "introFade 4s ease-in-out forwards",
+        floatSlow: "floatSlow 7s ease-in-out infinite",
+        floatSlower: "floatSlower 9s ease-in-out infinite",
+        colorWash: "colorWash 8s ease-in-out infinite",
+        drift: "drift 10s ease-in-out infinite",
+      },
+    },
+  },
+  plugins: [],
+};
