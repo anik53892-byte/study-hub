@@ -28,6 +28,7 @@ import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
 import { colorFor, autoColor, ICONS, PALETTE } from "@/lib/colors";
 import { useAuth } from "@/lib/useAuth";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import PremiumBackground from "@/components/PremiumBackground";
 import FolderCard from "@/components/FolderCard";
 import { Modal, ConfirmDialog } from "@/components/Modal";
 import FolderPickerModal from "@/components/FolderPickerModal";
@@ -107,12 +108,13 @@ export default function FolderPage() {
   ];
 
   return (
-    <div className="min-h-screen pb-28">
-      <Breadcrumbs trail={trail} isOwner={isOwner} onLogout={handleLogout} />
+    <div className="min-h-screen pb-28 relative">
+      <PremiumBackground />
+      <Breadcrumbs trail={trail} isOwner={isOwner} onLogout={handleLogout} variant="premium" />
 
       <div className="max-w-2xl mx-auto px-4 pt-6">
         {folder && (
-          <div className={`rounded-2xl ${c.bg} ${c.text} p-4 mb-4 flex items-center gap-3`}>
+          <div className={`rounded-2xl ${c.bg} ${c.text} backdrop-blur-md border border-white/40 shadow-sm p-4 mb-4 flex items-center gap-3`}>
             <span className="text-2xl">{folder.icon}</span>
             <h1 className="font-semibold text-lg">{folder.name}</h1>
           </div>
@@ -166,7 +168,7 @@ export default function FolderPage() {
                 return (
                   <li
                     key={lesson.id}
-                    className={`${lc.bg} ${lc.text} rounded-2xl shadow-sm px-4 py-3 flex items-center gap-2`}
+                    className={`${lc.bg} ${lc.text} backdrop-blur-md border border-white/40 rounded-2xl shadow-sm px-4 py-3 flex items-center gap-2`}
                   >
                     <button
                       onClick={() => router.push(`/lesson/${lesson.id}`)}
