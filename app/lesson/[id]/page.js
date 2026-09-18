@@ -10,6 +10,7 @@ import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
 import { colorFor } from "@/lib/colors";
 import { useAuth } from "@/lib/useAuth";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import PremiumBackground from "@/components/PremiumBackground";
 import SaveStatus from "@/components/SaveStatus";
 import { ListSkeleton } from "@/components/EmptyState";
 
@@ -129,8 +130,10 @@ export default function LessonPage() {
   ];
 
   return (
-    <div className={`min-h-screen pb-16 ${lc.bg}`}>
-      <Breadcrumbs trail={trail} isOwner={isOwner} onLogout={handleLogout} />
+    <div className="min-h-screen pb-16 relative">
+      <PremiumBackground />
+      <div className={`fixed inset-0 -z-10 ${lc.bg}`} />
+      <Breadcrumbs trail={trail} isOwner={isOwner} onLogout={handleLogout} variant="premium" />
 
       <div className="max-w-2xl mx-auto px-4 pt-4 flex items-center justify-between">
         <h1 className={`text-lg font-semibold truncate pr-3 ${lc.text}`}>{lesson.title}</h1>
@@ -170,7 +173,7 @@ export default function LessonPage() {
         ) : lesson.content ? (
           <div
             key={lesson.id}
-            className="lesson-content bg-white/70 rounded-2xl shadow-sm p-5"
+            className="lesson-content bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl shadow-sm p-5"
             dangerouslySetInnerHTML={{ __html: lesson.content }}
           />
         ) : (
