@@ -25,14 +25,23 @@ import {
 } from "@/lib/db";
 import { withRetry } from "@/lib/retry";
 import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
-import { colorFor, autoColor, ICONS, PALETTE } from "@/lib/colors";
+import { autoColor, autoIcon } from "@/lib/colors";
 import { useAuth } from "@/lib/useAuth";
 import Breadcrumbs from "@/components/Breadcrumbs";
-import PremiumBackground from "@/components/PremiumBackground";
+import LiveBackground from "@/components/LiveBackground";
 import FolderCard from "@/components/FolderCard";
+import ColorPicker from "@/components/ColorPicker";
+import IconPicker from "@/components/IconPicker";
 import { Modal, ConfirmDialog } from "@/components/Modal";
 import FolderPickerModal from "@/components/FolderPickerModal";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
+
+const FOLDER_MESSAGES = [
+  "Sweet heart 💝 মনোযোগ দাও, অর্জন আসবেই।",
+  "প্রতিদিনের চর্চা তোমাকে এগিয়ে নেবে।",
+  "ছোট পদক্ষেপই বড় সাফল্যের শুরু।",
+  "আজকের অধ্যবসায় আগামীর সাফল্য।",
+];
 
 export default function FolderPage() {
   const { id } = useParams();
@@ -46,6 +55,9 @@ export default function FolderPage() {
   const [lessons, setLessons] = useState(null);
   const [error, setError] = useState("");
 
+  const [msgIndex, setMsgIndex] = useState(0);
+  const [quoteVisible, setQuoteVisible] = useState(true);
+
   const [addFolderOpen, setAddFolderOpen] = useState(false);
   const [addLessonOpen, setAddLessonOpen] = useState(false);
   const [menuFolder, setMenuFolder] = useState(null);
@@ -56,6 +68,17 @@ export default function FolderPage() {
   const [moveLessonOpen, setMoveLessonOpen] = useState(false);
   const [confirmDeleteFolder, setConfirmDeleteFolder] = useState(null);
   const [confirmDeleteLesson, setConfirmDeleteLesson] = useState(null);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setQuoteVisible(false);
+      setTimeout(() => {
+        setMsgIndex((i) => (i + 1) % FOLDER_MESSAGES.length);
+        setQuoteVisible(true);
+      }, 600);
+    }, 4000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     load();
@@ -101,7 +124,6 @@ export default function FolderPage() {
     reorderLessons(next.map((l) => l.id)).catch(() => setError("Couldn't save the new order."));
   }
 
-  const c = folder ? colorFor(folder.color) : null;
   const trail = [
     { href: "/home", label: "Home" },
     ...ancestors.map((a) => ({ href: `/folder/${a.id}`, label: a.name })),
@@ -109,29 +131,41 @@ export default function FolderPage() {
 
   return (
     <div className="min-h-screen pb-28 relative">
-      <PremiumBackground />
+      <LiveBackground heartCount={7} />
       <Breadcrumbs trail={trail} isOwner={isOwner} onLogout={handleLogout} variant="premium" />
 
       <div className="max-w-2xl mx-auto px-4 pt-6">
         {folder && (
-          <div className={`rounded-2xl ${c.bg} ${c.text} backdrop-blur-md border border-white/40 shadow-sm p-4 mb-4 flex items-center gap-3`}>
-            <span className="text-2xl">{folder.icon}</span>
-            <h1 className="font-semibold text-lg">{folder.name}</h1>
+          <div className="rounded-2xl bg-white/40 backdrop-blur-md border border-white/55 shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] p-4 mb-4 flex items-center gap-3">
+            <span className="text-2xl" style={{ filter: "drop-shadow(0 2px 6px rgba(124,58,237,0.25))" }}>
+              {folder.icon}
+            </span>
+            <h1 className="font-semibold text-lg text-[#3f3355]">{folder.name}</h1>
           </div>
         )}
 
-        {error && <p className="text-sm text-rose-500 px-1 mb-3">{error}</p>}
+        <div className="relative bg-white/40 backdrop-blur-xl border border-white/55 rounded-2xl px-4 py-4 mb-5 shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] min-h-[3.5rem] flex items-center justify-center">
+          <p
+            className={`text-center font-serif italic font-extrabold text-base sm:text-lg text-violet-800 [text-shadow:0_2px_8px_rgba(91,33,182,0.15)] transition-opacity duration-500
+              ${quoteVisible ? "opacity-100" : "opacity-0"}`}
+          >
+            "{FOLDER_MESSAGES[msgIndex]}"
+          </p>
+        </div>
+
+        {error && <p className="text-sm text-rose-700 bg-rose-100/70 border border-rose-200 backdrop-blur rounded-xl px-3 py-2 mb-3">{error}</p>}
 
         {(subfolders === null || lessons === null) && <ListSkeleton />}
 
         {subfolders && subfolders.length > 0 && (
           <div className="mb-5">
-            <h2 className="text-xs uppercase tracking-wide text-ink/40 mb-2 px-1">Sub-folders</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <h2 className="text-xs uppercase tracking-wide text-[#6d5d8c] mb-2 px-1">Sub-folders</h2>
+            <div className="grid grid-cols-3 gap-2.5">
               {subfolders.map((sf, idx) => (
                 <div key={sf.id} className="relative">
                   <FolderCard
                     folder={sf}
+                    compact
                     onOpen={(f) => router.push(`/folder/${f.id}`)}
                     onMenu={isOwner ? (f) => setMenuFolder(f) : null}
                   />
@@ -140,14 +174,14 @@ export default function FolderPage() {
                       <button
                         onClick={() => moveFolderUpDown(idx, -1)}
                         disabled={idx === 0}
-                        className="w-6 h-6 rounded-full bg-violet-50 text-violet-500 disabled:opacity-30 text-xs"
+                        className="w-5 h-5 rounded-full bg-white/60 text-violet-700 disabled:opacity-30 text-[10px]"
                       >
                         ↑
                       </button>
                       <button
                         onClick={() => moveFolderUpDown(idx, 1)}
                         disabled={idx === subfolders.length - 1}
-                        className="w-6 h-6 rounded-full bg-violet-50 text-violet-500 disabled:opacity-30 text-xs"
+                        className="w-5 h-5 rounded-full bg-white/60 text-violet-700 disabled:opacity-30 text-[10px]"
                       >
                         ↓
                       </button>
@@ -161,49 +195,46 @@ export default function FolderPage() {
 
         {lessons && lessons.length > 0 && (
           <div>
-            <h2 className="text-xs uppercase tracking-wide text-ink/40 mb-2 px-1">Lessons</h2>
+            <h2 className="text-xs uppercase tracking-wide text-[#6d5d8c] mb-2 px-1">Lessons</h2>
             <ul className="space-y-2">
-              {lessons.map((lesson, idx) => {
-                const lc = colorFor(lesson.color);
-                return (
-                  <li
-                    key={lesson.id}
-                    className={`${lc.bg} ${lc.text} backdrop-blur-md border border-white/40 rounded-2xl shadow-sm px-4 py-3 flex items-center gap-2`}
+              {lessons.map((lesson, idx) => (
+                <li
+                  key={lesson.id}
+                  className="relative overflow-hidden bg-white/40 backdrop-blur-md border border-white/55 rounded-2xl shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] px-4 py-3 flex items-center gap-2"
+                >
+                  <button
+                    onClick={() => router.push(`/lesson/${lesson.id}`)}
+                    className="flex-1 text-left font-semibold text-sm truncate text-[#3f3355]"
                   >
-                    <button
-                      onClick={() => router.push(`/lesson/${lesson.id}`)}
-                      className="flex-1 text-left font-medium text-sm truncate"
-                    >
-                      📝 {lesson.title}
-                    </button>
-                    {isOwner && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => moveLessonUpDown(idx, -1)}
-                          disabled={idx === 0}
-                          className="w-7 h-7 rounded-full bg-white/60 disabled:opacity-30 text-xs"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          onClick={() => moveLessonUpDown(idx, 1)}
-                          disabled={idx === lessons.length - 1}
-                          className="w-7 h-7 rounded-full bg-white/60 disabled:opacity-30 text-xs"
-                        >
-                          ↓
-                        </button>
-                        <button
-                          onClick={() => setMenuLesson(lesson)}
-                          className="w-7 h-7 rounded-full bg-white/60 text-xs"
-                          aria-label="Lesson options"
-                        >
-                          ⋮
-                        </button>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
+                    📝 {lesson.title}
+                  </button>
+                  {isOwner && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => moveLessonUpDown(idx, -1)}
+                        disabled={idx === 0}
+                        className="w-7 h-7 rounded-full bg-white/60 text-violet-700 disabled:opacity-30 text-xs"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        onClick={() => moveLessonUpDown(idx, 1)}
+                        disabled={idx === lessons.length - 1}
+                        className="w-7 h-7 rounded-full bg-white/60 text-violet-700 disabled:opacity-30 text-xs"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        onClick={() => setMenuLesson(lesson)}
+                        className="w-7 h-7 rounded-full bg-white/60 text-violet-700 text-xs"
+                        aria-label="Lesson options"
+                      >
+                        ⋮
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
             </ul>
           </div>
         )}
@@ -221,15 +252,17 @@ export default function FolderPage() {
         <div className="fixed bottom-6 right-6 sm:right-1/2 sm:translate-x-[calc(18rem)] flex flex-col gap-2 items-end">
           <button
             onClick={() => setAddLessonOpen(true)}
-            className="bg-violet-500 text-white rounded-full px-5 py-3 shadow-lg shadow-violet-300 text-sm font-medium active:scale-95 transition"
+            className="text-white rounded-full px-5 py-3 text-sm font-medium active:scale-95 transition
+              bg-gradient-to-br from-sky-400 to-sky-600 shadow-[0_0_0_1px_rgba(255,255,255,0.25)_inset,0_8px_22px_rgba(2,132,199,0.4)]"
           >
-            + Add Lesson
+            + New Lesson
           </button>
           <button
             onClick={() => setAddFolderOpen(true)}
-            className="bg-white text-violet-600 border border-violet-200 rounded-full px-5 py-3 shadow-md text-sm font-medium active:scale-95 transition"
+            className="text-white rounded-full px-5 py-3 text-sm font-medium active:scale-95 transition
+              bg-gradient-to-br from-pink-400 to-pink-600 shadow-[0_0_0_1px_rgba(255,255,255,0.25)_inset,0_8px_22px_rgba(219,39,119,0.4)]"
           >
-            + Add Sub-folder
+            + New Sub-folder
           </button>
         </div>
       )}
@@ -444,7 +477,7 @@ function MenuButton({ label, onClick, danger }) {
 function AddFolderModal({ open, existingCount, onClose, onCreate }) {
   const [name, setName] = useState("");
   const [color, setColor] = useState(autoColor(existingCount));
-  const [icon, setIcon] = useState(ICONS[0]);
+  const [icon, setIcon] = useState(autoIcon(existingCount));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -452,7 +485,7 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
     if (open) {
       setName("");
       setColor(autoColor(existingCount));
-      setIcon(ICONS[0]);
+      setIcon(autoIcon(existingCount));
       setError("");
     }
   }, [open, existingCount]);
@@ -497,8 +530,8 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
 
 function EditFolderModal({ open, folder, onClose, onSave }) {
   const [name, setName] = useState("");
-  const [color, setColor] = useState("blue");
-  const [icon, setIcon] = useState(ICONS[0]);
+  const [color, setColor] = useState("violet");
+  const [icon, setIcon] = useState("📁");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -580,7 +613,7 @@ function AddLessonModal({ open, existingCount, onClose, onCreate }) {
           onChange={(e) => setTitle(e.target.value)}
           className="w-full rounded-xl border border-violet-100 bg-violet-50/40 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-violet-300"
         />
-        <p className="text-xs text-ink/40 -mt-2">Background color for this lesson</p>
+        <p className="text-xs text-ink/40 -mt-2">Reading-page background tint</p>
         <ColorPicker value={color} onChange={setColor} />
         {error && <p className="text-sm text-rose-500">{error}</p>}
         <button
@@ -596,7 +629,7 @@ function AddLessonModal({ open, existingCount, onClose, onCreate }) {
 
 function RenameLessonModal({ open, lesson, onClose, onSave }) {
   const [title, setTitle] = useState("");
-  const [color, setColor] = useState("blue");
+  const [color, setColor] = useState("dark");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -626,7 +659,7 @@ function RenameLessonModal({ open, lesson, onClose, onSave }) {
           onChange={(e) => setTitle(e.target.value)}
           className="w-full rounded-xl border border-violet-100 bg-violet-50/40 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-violet-300"
         />
-        <p className="text-xs text-ink/40 -mt-2">Background color</p>
+        <p className="text-xs text-ink/40 -mt-2">Reading-page background tint</p>
         <ColorPicker value={color} onChange={setColor} />
         <button
           disabled={saving || !title.trim()}
@@ -636,42 +669,5 @@ function RenameLessonModal({ open, lesson, onClose, onSave }) {
         </button>
       </form>
     </Modal>
-  );
-}
-
-function IconPicker({ value, onChange }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {ICONS.map((i) => (
-        <button
-          type="button"
-          key={i}
-          onClick={() => onChange(i)}
-          className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
-            value === i ? "bg-violet-500" : "bg-violet-50"
-          }`}
-        >
-          {i}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ColorPicker({ value, onChange }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {PALETTE.map((c) => (
-        <button
-          type="button"
-          key={c.key}
-          onClick={() => onChange(c.key)}
-          className={`w-9 h-9 rounded-full ${c.bg} ring-2 ${
-            value === c.key ? "ring-violet-500" : "ring-transparent"
-          }`}
-          aria-label={c.key}
-        />
-      ))}
-    </div>
   );
 }
