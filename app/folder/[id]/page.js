@@ -37,10 +37,11 @@ import FolderPickerModal from "@/components/FolderPickerModal";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
 
 const FOLDER_MESSAGES = [
+  "Pollobi,মায়ের কষ্ট মনে রেখো,বাবার স্বপ্ন পূরণ করো—সফল তোমার হতেই হবে।",
   "Sweet Heart❤️‍🔥মনোযোগ দাও, অর্জন আসবেই।",
   "প্রতিদিনের চর্চা তোমাকে এগিয়ে নেবে।",
   "ছোট পদক্ষেপই বড় সাফল্যের শুরু।",
-  "Pollobi,মায়ের কষ্ট মনে রেখো,বাবার স্বপ্ন পূরণ করো—সফল তোমার হতেই হবে।",
+
 ];
 
 export default function FolderPage() {
