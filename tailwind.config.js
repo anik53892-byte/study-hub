@@ -47,6 +47,14 @@ module.exports = {
           "90%": { opacity: 1 },
           "100%": { transform: "translateY(-110vh) scale(1.15)", opacity: 0 },
         },
+        introGlow: {
+          "0%, 100%": { color: "#f5eeff", textShadow: "0 0 22px rgba(216,180,254,0.55), 0 0 50px rgba(168,85,247,0.35)" },
+          "50%": { color: "#e9d5ff", textShadow: "0 0 34px rgba(216,180,254,0.85), 0 0 70px rgba(168,85,247,0.55)" },
+        },
+        underlinePulse: {
+          "0%, 100%": { opacity: 0.4, width: "3rem" },
+          "50%": { opacity: 1, width: "5rem" },
+        },
       },
       animation: {
         fadeIn: "fadeIn 0.4s ease-out both",
@@ -56,6 +64,8 @@ module.exports = {
         colorWash: "colorWash 8s ease-in-out infinite",
         drift: "drift 10s ease-in-out infinite",
         floatUp: "floatUp linear infinite",
+        introGlow: "introGlow 3.2s ease-in-out infinite",
+        underlinePulse: "underlinePulse 3.2s ease-in-out infinite",
       },
     },
   },
