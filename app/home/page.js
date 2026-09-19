@@ -16,26 +16,25 @@ import {
 } from "@/lib/db";
 import { withRetry } from "@/lib/retry";
 import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
-import { PALETTE, ICONS, autoColor, autoIcon } from "@/lib/colors";
+import { autoColor, autoIcon } from "@/lib/colors";
 import { useAuth } from "@/lib/useAuth";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import FolderCard from "@/components/FolderCard";
 import LiveBackground from "@/components/LiveBackground";
+import ColorPicker from "@/components/ColorPicker";
+import IconPicker from "@/components/IconPicker";
 import { Modal, ConfirmDialog } from "@/components/Modal";
 import FolderPickerModal from "@/components/FolderPickerModal";
 import { EmptyState, CardSkeleton } from "@/components/EmptyState";
 
 const MESSAGES = [
+  "নিজের উপর বিশ্বাস রাখো, তুমি পারবে।",
   "আজকের একটু পড়াই আগামীকালের বড় পরিবর্তন।",
   "স্বপ্ন পূরণের পথ শুরু হয় আজ থেকেই।",
   "প্রতিদিনের ছোট চেষ্টা বড় সাফল্যের চাবিকাঠি।",
-  "মনোযোগ দাও, অর্জন আসবেই।",
   "ধৈর্য আর অধ্যবসায়ই সাফল্যের রহস্য।",
-  "নিজের উপর বিশ্বাস রাখো, তুমি পারবে।",
+  "মনোযোগ দাও, অর্জন আসবেই।",
 ];
-
-// gold, rose, lavender, mint, sky blue, peach
-const QUOTE_COLORS = ["text-amber-700", "text-rose-600", "text-violet-600", "text-teal-600", "text-sky-600", "text-orange-500"];
 
 export default function HomePage() {
   const router = useRouter();
@@ -45,6 +44,7 @@ export default function HomePage() {
   const [folders, setFolders] = useState(null);
   const [counts, setCounts] = useState({});
   const [msgIndex, setMsgIndex] = useState(0);
+  const [quoteVisible, setQuoteVisible] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [menuFolder, setMenuFolder] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -53,7 +53,13 @@ export default function HomePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const t = setInterval(() => setMsgIndex((i) => (i + 1) % MESSAGES.length), 4000);
+    const t = setInterval(() => {
+      setQuoteVisible(false);
+      setTimeout(() => {
+        setMsgIndex((i) => (i + 1) % MESSAGES.length);
+        setQuoteVisible(true);
+      }, 600);
+    }, 4000);
     return () => clearInterval(t);
   }, []);
 
@@ -92,24 +98,24 @@ export default function HomePage() {
       />
 
       <div className="max-w-2xl mx-auto px-4 pt-6">
-        {/* Quote card */}
-        <div className="bg-white/25 backdrop-blur-xl border border-white/30 rounded-3xl shadow-lg px-5 py-4 mb-5">
+        <div className="relative bg-gradient-to-b from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-violet-200/15 rounded-3xl px-5 py-7 mb-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_8px_32px_rgba(0,0,0,0.5),0_0_40px_rgba(168,85,247,0.12)] flex items-center justify-center min-h-[5.5rem]">
           <p
-            key={msgIndex}
-            className={`text-center font-serif italic text-base sm:text-lg leading-snug animate-fadeIn transition-colors duration-700 ${QUOTE_COLORS[msgIndex % QUOTE_COLORS.length]}`}
+            className={`text-center font-serif italic font-bold text-lg sm:text-xl leading-snug text-amber-300
+              [text-shadow:0_0_20px_rgba(252,211,77,0.4)] transition-opacity duration-500
+              ${quoteVisible ? "opacity-100" : "opacity-0"}`}
           >
-            “{MESSAGES[msgIndex]}”
+            "{MESSAGES[msgIndex]}"
           </p>
         </div>
 
-        <h1 className="text-xl font-semibold mt-2 mb-3 px-1 text-white drop-shadow-sm">📚 My Study</h1>
+        <h1 className="text-xl font-semibold mt-2 mb-3 px-1 text-violet-50">📚 My Study</h1>
 
-        {error && <p className="text-sm text-rose-100 bg-rose-500/40 backdrop-blur rounded-xl px-3 py-2 mb-3">{error}</p>}
+        {error && <p className="text-sm text-rose-200 bg-rose-500/20 border border-rose-400/30 backdrop-blur rounded-xl px-3 py-2 mb-3">{error}</p>}
 
-        {folders === null && <CardSkeleton />}
+        {folders === null && <CardSkeleton light />}
 
         {folders && folders.length === 0 && (
-          <EmptyState emoji="🗂️" title="No folders yet" subtitle={isOwner ? "Create your first folder to get started" : "Check back soon"} />
+          <EmptyState light emoji="🗂️" title="No folders yet" subtitle={isOwner ? "Create your first folder to get started" : "Check back soon"} />
         )}
 
         {folders && folders.length > 0 && (
@@ -314,8 +320,8 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
 
 function EditFolderModal({ open, folder, onClose, onSave }) {
   const [name, setName] = useState("");
-  const [color, setColor] = useState("blue");
-  const [icon, setIcon] = useState(ICONS[0]);
+  const [color, setColor] = useState("violet");
+  const [icon, setIcon] = useState("📁");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -356,42 +362,5 @@ function EditFolderModal({ open, folder, onClose, onSave }) {
         </button>
       </form>
     </Modal>
-  );
-}
-
-function IconPicker({ value, onChange }) {
-  return (
-    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-      {ICONS.map((i) => (
-        <button
-          type="button"
-          key={i}
-          onClick={() => onChange(i)}
-          className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
-            value === i ? "bg-violet-500" : "bg-violet-50"
-          }`}
-        >
-          {i}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ColorPicker({ value, onChange }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {PALETTE.map((c) => (
-        <button
-          type="button"
-          key={c.key}
-          onClick={() => onChange(c.key)}
-          className={`w-9 h-9 rounded-full ${c.bg} ring-2 ${
-            value === c.key ? "ring-violet-500" : "ring-transparent"
-          }`}
-          aria-label={c.key}
-        />
-      ))}
-    </div>
   );
 }
