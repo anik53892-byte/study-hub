@@ -47,6 +47,13 @@ module.exports = {
           "90%": { opacity: 1 },
           "100%": { transform: "translateY(-110vh) scale(1.15)", opacity: 0 },
         },
+        floatUpDrift: {
+          "0%": { transform: "translate(0, 0) scale(0.9)", opacity: 0 },
+          "12%": { opacity: 1 },
+          "50%": { transform: "translate(var(--dx, 20px), -55vh) scale(1.05)" },
+          "88%": { opacity: 1 },
+          "100%": { transform: "translate(calc(var(--dx, 20px) * 1.8), -110vh) scale(1.2)", opacity: 0 },
+        },
         introGlow: {
           "0%, 100%": { color: "#f5eeff", textShadow: "0 0 22px rgba(216,180,254,0.55), 0 0 50px rgba(168,85,247,0.35)" },
           "50%": { color: "#e9d5ff", textShadow: "0 0 34px rgba(216,180,254,0.85), 0 0 70px rgba(168,85,247,0.55)" },
@@ -64,6 +71,7 @@ module.exports = {
         colorWash: "colorWash 8s ease-in-out infinite",
         drift: "drift 10s ease-in-out infinite",
         floatUp: "floatUp linear infinite",
+        floatUpDrift: "floatUpDrift linear infinite",
         introGlow: "introGlow 3.2s ease-in-out infinite",
         underlinePulse: "underlinePulse 3.2s ease-in-out infinite",
       },
