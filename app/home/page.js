@@ -28,9 +28,9 @@ import FolderPickerModal from "@/components/FolderPickerModal";
 import { EmptyState, CardSkeleton } from "@/components/EmptyState";
 
 const MESSAGES = [
-  "নিজের উপর বিশ্বাস রাখো, তুমি পারবে।",
+  "Pollobi, নিজের উপর বিশ্বাস রাখো, তুমি পারবে।",
   "আজকের একটু পড়াই আগামীকালের বড় পরিবর্তন।",
-  "স্বপ্ন পূরণের পথ শুরু হয় আজ থেকেই।",
+  "স্বপ্ন পূরণের পথ শুরু করো আজ থেকেই।",
   "প্রতিদিনের ছোট চেষ্টা বড় সাফল্যের চাবিকাঠি।",
   "ধৈর্য আর অধ্যবসায়ই সাফল্যের রহস্য।",
   "মনোযোগ দাও, অর্জন আসবেই।",
@@ -94,28 +94,28 @@ export default function HomePage() {
         isOwner={isOwner}
         onLogout={handleLogout}
         showSearch
-        variant="glass"
+        variant="premium"
       />
 
       <div className="max-w-2xl mx-auto px-4 pt-6">
-        <div className="relative bg-gradient-to-b from-white/[0.07] to-white/[0.02] backdrop-blur-xl border border-violet-200/15 rounded-3xl px-5 py-7 mb-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_8px_32px_rgba(0,0,0,0.5),0_0_40px_rgba(168,85,247,0.12)] flex items-center justify-center min-h-[5.5rem]">
+        <div className="relative bg-white/40 backdrop-blur-xl border border-white/55 rounded-3xl px-5 py-7 mb-6 shadow-[0_10px_28px_rgba(90,70,120,0.15),inset_0_1px_0_rgba(255,255,255,0.6)] flex items-center justify-center min-h-[5.5rem]">
           <p
-            className={`text-center font-serif italic font-bold text-lg sm:text-xl leading-snug text-amber-300
-              [text-shadow:0_0_20px_rgba(252,211,77,0.4)] transition-opacity duration-500
+            className={`text-center font-serif italic font-extrabold text-xl sm:text-2xl leading-snug text-violet-800
+              [text-shadow:0_2px_10px_rgba(91,33,182,0.18)] transition-opacity duration-500
               ${quoteVisible ? "opacity-100" : "opacity-0"}`}
           >
             "{MESSAGES[msgIndex]}"
           </p>
         </div>
 
-        <h1 className="text-xl font-semibold mt-2 mb-3 px-1 text-violet-50">📚 My Study</h1>
+        <h1 className="text-xl font-semibold mt-2 mb-3 px-1 text-[#3f3355]">📚 My Study</h1>
 
-        {error && <p className="text-sm text-rose-200 bg-rose-500/20 border border-rose-400/30 backdrop-blur rounded-xl px-3 py-2 mb-3">{error}</p>}
+        {error && <p className="text-sm text-rose-700 bg-rose-100/70 border border-rose-200 backdrop-blur rounded-xl px-3 py-2 mb-3">{error}</p>}
 
-        {folders === null && <CardSkeleton light />}
+        {folders === null && <CardSkeleton />}
 
         {folders && folders.length === 0 && (
-          <EmptyState light emoji="🗂️" title="No folders yet" subtitle={isOwner ? "Create your first folder to get started" : "Check back soon"} />
+          <EmptyState emoji="🗂️" title="No folders yet" subtitle={isOwner ? "Create your first folder to get started" : "Check back soon"} />
         )}
 
         {folders && folders.length > 0 && (
@@ -137,9 +137,9 @@ export default function HomePage() {
         <button
           onClick={() => setAddOpen(true)}
           className="fixed bottom-6 right-6 sm:right-1/2 sm:translate-x-[calc(18rem)] text-white rounded-full px-5 py-3 text-sm font-medium active:scale-95 transition
-            bg-gradient-to-r from-fuchsia-500 via-pink-500 to-violet-500 shadow-[0_0_25px_rgba(236,72,153,0.6)]"
+            bg-gradient-to-br from-violet-400 to-violet-600 shadow-[0_0_0_1px_rgba(255,255,255,0.25)_inset,0_8px_22px_rgba(124,58,237,0.45)]"
         >
-          + Add Folder
+          + New Folder
         </button>
       )}
 
