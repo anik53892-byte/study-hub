@@ -1,34 +1,40 @@
-const HEARTS = ["💕", "💖"];
-
-// Deterministic pseudo-random so server and client render the same values (avoids hydration mismatch).
 function seeded(i, salt) {
   const x = Math.sin(i * 999 + salt * 37.7) * 10000;
   return x - Math.floor(x);
 }
 
-export default function LiveBackground({ count = 14 }) {
-  const hearts = Array.from({ length: count }).map((_, i) => {
+export default function LiveBackground({ heartCount = 8 }) {
+  const hearts = Array.from({ length: heartCount }).map((_, i) => {
     const left = seeded(i, 1) * 100;
-    const size = 14 + seeded(i, 2) * 26; // 14px–40px
-    const duration = 9 + seeded(i, 3) * 10; // 9s–19s
-    const delay = seeded(i, 4) * 12;
-    const emoji = HEARTS[i % HEARTS.length];
+    const size = 13 + seeded(i, 2) * 10;
+    const duration = 8 + seeded(i, 3) * 5;
+    const delay = seeded(i, 4) * 10;
+    const emoji = i % 3 === 0 ? "✦" : i % 2 === 0 ? "💞" : "💕";
     return { left, size, duration, delay, emoji, key: i };
   });
 
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden bg-gradient-to-b from-violet-400 via-fuchsia-300 to-pink-200">
-      <div className="absolute inset-0 bg-gradient-to-t from-white/10 via-transparent to-white/10" />
+    <div className="fixed inset-0 -z-10 overflow-hidden bg-[#050506]">
+      <div className="absolute -top-20 -left-16 w-72 h-72 rounded-full bg-violet-500/30 blur-[80px] animate-drift" />
+      <div
+        className="absolute top-1/3 -right-24 w-80 h-80 rounded-full bg-purple-600/25 blur-[90px] animate-drift"
+        style={{ animationDelay: "2s" }}
+      />
+      <div
+        className="absolute bottom-0 left-1/4 w-64 h-64 rounded-full bg-fuchsia-500/20 blur-[80px] animate-drift"
+        style={{ animationDelay: "4s" }}
+      />
       {hearts.map((h) => (
         <span
           key={h.key}
-          className="absolute bottom-0 animate-floatUp select-none"
+          className="absolute bottom-0 select-none animate-floatUp"
           style={{
             left: `${h.left}%`,
             fontSize: `${h.size}px`,
             animationDuration: `${h.duration}s`,
             animationDelay: `${h.delay}s`,
             opacity: 0,
+            filter: "drop-shadow(0 0 6px rgba(216,180,254,0.6))",
           }}
         >
           {h.emoji}
