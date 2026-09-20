@@ -16,7 +16,7 @@ export default function FolderCard({ folder, onOpen, onMenu, count, compact = fa
         bg-white/40 backdrop-blur-md
         shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)]
         flex flex-col justify-between cursor-pointer select-none transition-transform
-        ${compact ? "p-2.5 min-h-[4.75rem] rounded-[14px]" : "p-4 min-h-[6.5rem]"}
+        ${compact ? "p-2.5 min-h-[5.5rem] rounded-[14px]" : "p-4 min-h-[6.5rem]"}
         ${pressed ? "scale-[0.97]" : "scale-100"}`}
     >
       <div className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/35 to-transparent pointer-events-none" />
@@ -27,8 +27,9 @@ export default function FolderCard({ folder, onOpen, onMenu, count, compact = fa
             e.stopPropagation();
             onMenu(folder);
           }}
-          className={`absolute rounded-full bg-white/60 flex items-center justify-center text-violet-700
-            ${compact ? "top-1.5 right-1.5 w-5 h-5 text-[10px]" : "top-2.5 right-2.5 w-6 h-6 text-xs"}`}
+          onPointerDown={(e) => e.stopPropagation()}
+          className={`absolute z-10 rounded-full bg-white/70 flex items-center justify-center text-violet-700 font-bold active:scale-90 transition-transform
+            ${compact ? "top-1 right-1 w-8 h-8 text-lg" : "top-2 right-2 w-10 h-10 text-xl"}`}
           aria-label="Folder options"
         >
           ⋮
@@ -38,7 +39,7 @@ export default function FolderCard({ folder, onOpen, onMenu, count, compact = fa
         {folder.icon}
       </div>
       <div>
-        <div className={`text-[#3f3355] font-semibold leading-snug break-words ${compact ? "text-[11px] pr-4" : "text-sm pr-6 mt-2.5"}`}>
+        <div className={`text-[#3f3355] font-semibold leading-snug break-words ${compact ? "text-[11px]" : "text-sm mt-2.5"}`}>
           {folder.name}
         </div>
         {typeof count === "number" && (
