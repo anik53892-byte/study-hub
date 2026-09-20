@@ -9,15 +9,16 @@ body {
 
 /* =========================================================
    LESSON CONTENT
-   Soft, comfortable typography for long mobile reading
+   Pure dark reading theme
+   Comfortable for long mobile reading
    ========================================================= */
 
 .lesson-content {
   font-size: 17px;
   line-height: 1.85;
 
-  /* Soft warm-gray instead of dark brown/black */
-  color: #4a4742;
+  /* Pure white primary text */
+  color: #ffffff;
 
   letter-spacing: 0.1px;
 }
@@ -29,8 +30,7 @@ body {
 
   margin: 1.3em 0 0.5em;
 
-  /* Softer dark gray */
-  color: #36332f;
+  color: #ffffff;
 
   line-height: 1.4;
 }
@@ -42,7 +42,7 @@ body {
 
   margin: 1.1em 0 0.45em;
 
-  color: #36332f;
+  color: #ffffff;
 
   line-height: 1.4;
 }
@@ -50,6 +50,7 @@ body {
 /* Paragraph */
 .lesson-content p {
   margin: 0.85em 0;
+  color: #ffffff;
 }
 
 /* Unordered List */
@@ -73,6 +74,7 @@ body {
 /* List Items */
 .lesson-content li {
   margin: 0.35em 0;
+  color: #ffffff;
 }
 
 /* =========================================================
@@ -80,19 +82,17 @@ body {
    ========================================================= */
 
 .lesson-content blockquote {
-  border-left: 3px solid #c9a469;
+  border-left: 3px solid #8b7cff;
 
   padding-left: 1em;
 
-  /* Softer text */
-  color: #6b655d;
+  color: #ddddE5;
 
   margin: 1em 0;
 
   font-style: italic;
 
-  /* Very subtle warm background */
-  background: rgba(201, 164, 105, 0.06);
+  background: rgba(139, 124, 255, 0.08);
 
   border-radius: 0 8px 8px 0;
 
@@ -105,7 +105,7 @@ body {
    ========================================================= */
 
 .lesson-content a {
-  color: #80694f;
+  color: #b9b0ff;
 
   text-decoration: underline;
 
@@ -130,20 +130,22 @@ body {
 
 .lesson-content td,
 .lesson-content th {
-  border: 1px solid #e5dcc8;
+  border: 1px solid #34343a;
 
   padding: 0.55em 0.75em;
 
   text-align: left;
+
+  color: #ffffff;
 }
 
 /* Table Header */
 .lesson-content th {
-  background: #f0e8d8;
+  background: #1b1b20;
 
   font-weight: 600;
 
-  color: #36332f;
+  color: #ffffff;
 }
 
 /* =========================================================
@@ -151,7 +153,17 @@ body {
    ========================================================= */
 
 .lesson-content strong {
-  color: #36332f;
+  color: #ffffff;
+}
+
+/* Italic */
+.lesson-content em {
+  color: #ffffff;
+}
+
+/* Underline */
+.lesson-content u {
+  color: #ffffff;
 }
 
 /* =========================================================
@@ -162,17 +174,79 @@ body {
   outline: none;
 
   min-height: 50vh;
+
+  color: #ffffff;
 }
 
-/* Editor Placeholder */
+/* Editor paragraph */
+.ProseMirror p {
+  color: #ffffff;
+}
+
+/* Editor headings */
+.ProseMirror h1,
+.ProseMirror h2 {
+  color: #ffffff;
+}
+
+/* Editor lists */
+.ProseMirror li {
+  color: #ffffff;
+}
+
+/* Editor links */
+.ProseMirror a {
+  color: #b9b0ff;
+}
+
+/* Editor blockquote */
+.ProseMirror blockquote {
+  color: #ddddE5;
+}
+
+/* =========================================================
+   EDITOR PLACEHOLDER
+   ========================================================= */
+
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
 
-  color: #a89fc9;
+  color: #777783;
 
   float: left;
 
   pointer-events: none;
 
   height: 0;
+}
+
+/* =========================================================
+   TABLE INSIDE EDITOR
+   ========================================================= */
+
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.ProseMirror td,
+.ProseMirror th {
+  border: 1px solid #34343a;
+  padding: 0.55em 0.75em;
+  color: #ffffff;
+}
+
+.ProseMirror th {
+  background: #1b1b20;
+  color: #ffffff;
+}
+
+/* =========================================================
+   SELECTION
+   ========================================================= */
+
+.lesson-content ::selection,
+.ProseMirror ::selection {
+  background: rgba(139, 124, 255, 0.35);
+  color: #ffffff;
 }
