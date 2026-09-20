@@ -42,12 +42,12 @@ export default function HomeBackground() {
         }
         .gb-trail {
           fill: none;
-          stroke-width: 0.9;
+          stroke-width: 1.0;
           animation: gbPulse 6s ease-in-out infinite;
         }
-        .gb-trail-1 { stroke: rgba(255, 255, 255, 0.42); animation-delay: 0s; }
-        .gb-trail-2 { stroke: rgba(196, 181, 253, 0.4); animation-delay: 1.2s; }
-        .gb-trail-3 { stroke: rgba(255, 255, 255, 0.3); animation-delay: 2.4s; }
+        .gb-trail-1 { stroke: rgba(255, 255, 255, 0.62); animation-delay: 0s; }
+        .gb-trail-2 { stroke: rgba(196, 181, 253, 0.58); animation-delay: 1.2s; }
+        .gb-trail-3 { stroke: rgba(255, 255, 255, 0.48); animation-delay: 2.4s; }
 
         .gb-cluster-tl { animation: gbSpin 130s linear infinite; transform-origin: center; }
         .gb-cluster-br { animation: gbSpin 150s linear infinite reverse; transform-origin: center; }
