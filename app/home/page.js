@@ -20,7 +20,7 @@ import { autoColor, autoIcon } from "@/lib/colors";
 import { useAuth } from "@/lib/useAuth";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import FolderCard from "@/components/FolderCard";
-import LiveBackground from "@/components/LiveBackground";
+import HomeBackground from "@/components/HomeBackground";
 import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
 import { Modal, ConfirmDialog } from "@/components/Modal";
