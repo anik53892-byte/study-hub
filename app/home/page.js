@@ -88,7 +88,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen pb-28 relative">
-      <LiveBackground />
+      <HomeBackground />
       <Breadcrumbs
         trail={[{ href: "/home", label: "Home" }]}
         isOwner={isOwner}
