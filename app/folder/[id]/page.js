@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabaseClient";
 import {
   fetchFolder,
@@ -32,9 +33,12 @@ import LiveBackground from "@/components/LiveBackground";
 import FolderCard from "@/components/FolderCard";
 import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
+import SaveStatus from "@/components/SaveStatus";
 import { Modal, ConfirmDialog } from "@/components/Modal";
 import FolderPickerModal from "@/components/FolderPickerModal";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
+
+const LessonEditor = dynamic(() => import("@/components/LessonEditor"), { ssr: false });
 
 const FOLDER_MESSAGES = [
   "Sweet Heart ❤️‍🔥মনোযোগ দাও, অর্জন আসবেই।",
@@ -42,6 +46,8 @@ const FOLDER_MESSAGES = [
   "ছোট পদক্ষেপই বড় সাফল্যের শুরু।",
   "Pollobi,মায়ের কষ্ট মনে রেখো, বাবার স্বপ্ন পূরণ করো—সাফল্য তোমার হতেই হবে।",
 ];
+
+const AUTOSAVE_DELAY_MS = 1500;
 
 export default function FolderPage() {
   const { id } = useParams();
@@ -69,6 +75,66 @@ export default function FolderPage() {
   const [confirmDeleteFolder, setConfirmDeleteFolder] = useState(null);
   const [confirmDeleteLesson, setConfirmDeleteLesson] = useState(null);
 
+  // ----- Folder notes (write directly on the folder page) -----
+  const [content, setContent] = useState(null); // null = still loading
+  const [showEditor, setShowEditor] = useState(false);
+  const editorRef = useRef(null);
+  const hasNotes = !!content && content.replace(/<[^>]*>/g, "").trim() !== "";
+  const [saveStatus, setSaveStatus] = useState("idle");
+  const saveTimer = useRef(null);
+  const pendingRef = useRef(null);
+
+  async function flushSave() {
+    clearTimeout(saveTimer.current);
+    const p = pendingRef.current;
+    if (!p) return;
+    pendingRef.current = null;
+    setSaveStatus("saving");
+    try {
+      await updateFolder(p.id, p.payload);
+      setSaveStatus("saved");
+    } catch {
+      if (!pendingRef.current) pendingRef.current = p;
+      setSaveStatus("error");
+    }
+  }
+
+  function handleEditorChange(html, text) {
+    pendingRef.current = { id, payload: { content: html, content_text: text } };
+    setSaveStatus("saving");
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(flushSave, AUTOSAVE_DELAY_MS);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    setContent(null);
+    setShowEditor(false);
+    setSaveStatus("idle");
+    fetchFolder(id)
+      .then((f) => {
+        if (!cancelled) setContent(f.content ?? "");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      flushSave();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    function beforeUnload(e) {
+      if (pendingRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, []);
+
+  // ----- Rotating quote -----
   useEffect(() => {
     const t = setInterval(() => {
       setQuoteVisible(false);
@@ -82,9 +148,11 @@ export default function FolderPage() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  useRealtimeRefresh(["folders", "lessons"], load);
+  // Skip realtime refresh while there are unsaved notes being typed
+  useRealtimeRefresh(["folders", "lessons"], load, () => !!pendingRef.current);
 
   async function load() {
     try {
@@ -102,6 +170,7 @@ export default function FolderPage() {
   }
 
   async function handleLogout() {
+    await flushSave();
     await supabase.auth.signOut();
     router.refresh();
   }
@@ -143,6 +212,29 @@ export default function FolderPage() {
             <h1 className="font-semibold text-lg text-[#3f3355]">{folder.name}</h1>
           </div>
         )}
+
+        {/* ===== Notes: write directly inside this folder ===== */}
+        {folder?.parent_id &&
+          content !== null &&
+          (isOwner ? (
+            (showEditor || hasNotes) && (
+              <div className="mb-5" ref={editorRef}>
+                <div className="flex items-center justify-between px-1 mb-2">
+                  <h2 className="text-xs uppercase tracking-wide text-[#6d5d8c]">Notes</h2>
+                  <SaveStatus status={saveStatus} />
+                </div>
+                <LessonEditor key={id} content={content} onChange={handleEditorChange} />
+              </div>
+            )
+          ) : (
+            content.replace(/<[^>]*>/g, "").trim() && (
+              <div
+                className="lesson-content rounded-2xl p-5 mb-5"
+                style={{ background: "#111113", border: "1px solid #242428" }}
+                dangerouslySetInnerHTML={{ __html: content }}
+              />
+            )
+          ))}
 
         <div className="relative bg-white/40 backdrop-blur-xl border border-white/55 rounded-2xl px-4 py-4 mb-5 shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] min-h-[3.5rem] flex items-center justify-center">
           <p
@@ -239,7 +331,7 @@ export default function FolderPage() {
           </div>
         )}
 
-        {subfolders && lessons && subfolders.length === 0 && lessons.length === 0 && (
+        {subfolders && lessons && subfolders.length === 0 && lessons.length === 0 && !(isOwner && showEditor) && !(isOwner && hasNotes) && (
           <EmptyState
             emoji="📄"
             title="Nothing here yet"
@@ -257,6 +349,18 @@ export default function FolderPage() {
           >
             + New Lesson
           </button>
+          {folder?.parent_id && (
+            <button
+              onClick={() => {
+                setShowEditor(true);
+                setTimeout(() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
+              }}
+              className="text-white rounded-full px-5 py-3 text-sm font-medium active:scale-95 transition
+                bg-gradient-to-br from-violet-400 to-violet-600 shadow-[0_0_0_1px_rgba(255,255,255,0.25)_inset,0_8px_22px_rgba(124,58,237,0.4)]"
+            >
+              + Rich Text Editor
+            </button>
+          )}
           <button
             onClick={() => setAddFolderOpen(true)}
             className="text-white rounded-full px-5 py-3 text-sm font-medium active:scale-95 transition
