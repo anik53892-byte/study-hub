@@ -469,20 +469,3 @@ export default function IntroScreen({ name = "Pollobi", onDone }) {
     </div>
   );
 }
-
-এই version-এ মূল পরিবর্তন
-
-- 📸 Photo বেশি visible থাকবে
-- 🌌 Aurora থাকবে, কিন্তু খুব বেশি চোখে লাগবে না
-- ✨ 12টি ছোট glowing particle থাকবে
-- 🪻 "Hi Pollobi"-তে soft purple glow
-- 🧊 Text-এর পিছনে subtle glass effect
-- 🌫️ Text আসার সময় blur → clear animation
-- 💫 Underline খুব subtle pulse করবে
-- 🌑 চারপাশে soft vignette থাকবে
-- 📱 Mobile-এর জন্য আলাদা spacing
-- ♿ "prefers-reduced-motion" support আছে
-- ⏳ Intro শেষে smooth 1-second fade-out
-- 🔥 পুরো effect-টা এমন রাখা হয়েছে যেন Study Hub-এর intro মনে হয়, কোনো flashy landing-page animation নয়।
-
-একটা গুরুত্বপূর্ণ বিষয়: "intro-bg.jpg"-এর ছবিটা যদি নিজেই খুব উজ্জ্বল/রঙিন হয়, তাহলে "bg-gradient-to-b"-এর opacity আরও 5–10% কমানো যেতে পারে।
