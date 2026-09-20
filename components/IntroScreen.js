@@ -25,8 +25,10 @@ export default function IntroScreen({ name = "Pollobi", onDone }) {
     };
   }, [onDone]);
 
-  // Tiny glowing particles.
-  // Kept mostly toward the edges so the center remains clean.
+  /* =========================================================
+     SMALL BACKGROUND PARTICLES
+     ========================================================= */
+
   const particles = Array.from({ length: 12 }).map((_, i) => {
     const nearLeft = i % 2 === 0;
 
@@ -52,15 +54,50 @@ export default function IntroScreen({ name = "Pollobi", onDone }) {
     };
   });
 
+  /* =========================================================
+     HEART PARTICLES
+     ========================================================= */
+
+  const heartTypes = ["❤️‍🔥", "💗", "💞", "💕"];
+
+  const hearts = Array.from({ length: 30 }).map((_, i) => {
+    const spread = (seeded(i, 10) - 0.5) * 210;
+
+    const drift = (seeded(i, 11) - 0.5) * 140;
+
+    const size = 11 + seeded(i, 12) * 12;
+
+    const duration = 3.2 + seeded(i, 13) * 2.2;
+
+    const delay = seeded(i, 14) * 3.8;
+
+    const rotate = -35 + seeded(i, 15) * 70;
+
+    const rise = 250 + seeded(i, 16) * 100;
+
+    return {
+      heart: heartTypes[i % heartTypes.length],
+      spread,
+      drift,
+      size,
+      duration,
+      delay,
+      rotate,
+      rise,
+      key: i,
+    };
+  });
+
   return (
     <div
-      className={`fixed inset-0 z-50 overflow-hidden transition-opacity duration-1000 ib-root ${
+      className={`fixed inset-0 z-50 overflow-hidden transition-opacity duration-1000 ${
         leaving ? "opacity-0" : "opacity-100"
       }`}
     >
-      {/* =========================================================
+      {/* =====================================================
           BACKGROUND PHOTO
-          ========================================================= */}
+          ===================================================== */}
+
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
@@ -68,9 +105,10 @@ export default function IntroScreen({ name = "Pollobi", onDone }) {
         }}
       />
 
-      {/* =========================================================
-          SOFT AURORA / LIGHT CLOUDS
-          ========================================================= */}
+      {/* =====================================================
+          SOFT AURORA
+          ===================================================== */}
+
       <div className="absolute inset-0 ib-aurora-layer pointer-events-none">
         <div className="ib-cloud ib-cloud-1" />
         <div className="ib-cloud ib-cloud-2" />
@@ -78,20 +116,22 @@ export default function IntroScreen({ name = "Pollobi", onDone }) {
         <div className="ib-cloud ib-cloud-4" />
       </div>
 
-      {/* =========================================================
-          VERY SOFT DARK OVERLAY
-          Keeps photo visible while protecting text readability.
-          ========================================================= */}
+      {/* =====================================================
+          SOFT DARK OVERLAY
+          ===================================================== */}
+
       <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/10 to-black/55 pointer-events-none" />
 
-      {/* =========================================================
-          SUBTLE EDGE VIGNETTE
-          ========================================================= */}
+      {/* =====================================================
+          EDGE VIGNETTE
+          ===================================================== */}
+
       <div className="absolute inset-0 ib-vignette pointer-events-none" />
 
-      {/* =========================================================
-          FLOATING LIGHT PARTICLES
-          ========================================================= */}
+      {/* =====================================================
+          BACKGROUND LIGHT PARTICLES
+          ===================================================== */}
+
       {particles.map((p) => (
         <span
           key={p.key}
@@ -107,35 +147,91 @@ export default function IntroScreen({ name = "Pollobi", onDone }) {
         />
       ))}
 
-      {/* =========================================================
-          MAIN INTRO CONTENT
-          ========================================================= */}
-      <div className="relative z-10 h-full flex flex-col items-center justify-center px-6 text-center">
-        <div className="ib-glass-card animate-introFade">
-          {/* Small label */}
-          <p className="text-[11px] sm:text-xs tracking-[0.35em] uppercase text-violet-100/75 mb-4">
-            Study Hub
-          </p>
+      {/* =====================================================
+          MAIN CONTENT
+          ===================================================== */}
 
-          {/* Main greeting */}
-          <h1 className="font-serif italic font-bold text-4xl sm:text-5xl text-white animate-introGlow">
-            Hi {name}
-          </h1>
+      <div className="relative z-10 h-full w-full">
 
-          {/* Elegant glowing underline */}
-          <div className="h-px w-20 mx-auto mt-5 mb-4 rounded-full bg-gradient-to-r from-transparent via-violet-200/80 to-transparent animate-underlinePulse" />
+        {/* ===================================================
+            HEART BURST
+            Behind the card and rising upward
+            =================================================== */}
 
-          {/* Loading message */}
-          <p className="text-white/75 text-sm tracking-wide">
-            Getting your space ready…
-          </p>
+        <div className="absolute left-1/2 bottom-[13%] -translate-x-1/2 w-[320px] h-[390px] pointer-events-none z-10">
+
+          {/* Soft heart glow at the origin */}
+
+          <div className="heart-origin-glow" />
+
+          {/* Tiny central heart pulse */}
+
+          <div className="heart-origin">
+            💗
+          </div>
+
+          {hearts.map((h) => (
+            <span
+              key={h.key}
+              className="heart-particle"
+              style={{
+                "--spread": `${h.spread}px`,
+                "--drift": `${h.drift}px`,
+                "--size": `${h.size}px`,
+                "--rotate": `${h.rotate}deg`,
+                "--rise": `${h.rise}px`,
+                animationDuration: `${h.duration}s`,
+                animationDelay: `${h.delay}s`,
+              }}
+            >
+              {h.heart}
+            </span>
+          ))}
+        </div>
+
+        {/* ===================================================
+            BOTTOM GLASS CARD
+            =================================================== */}
+
+        <div className="absolute left-0 right-0 bottom-0 flex justify-center px-5 pb-[7vh] sm:pb-[8vh] z-20">
+
+          <div className="ib-bottom-card animate-bottomCard">
+
+            {/* Small label */}
+
+            <p className="text-[11px] sm:text-xs tracking-[0.35em] uppercase text-violet-100/75 mb-4">
+              Study Hub
+            </p>
+
+            {/* Main greeting */}
+
+            <h1 className="font-serif italic font-bold text-4xl sm:text-5xl text-white animate-introGlow">
+              Hi {name}
+            </h1>
+
+            {/* Glowing underline */}
+
+            <div className="h-px w-20 mx-auto mt-5 mb-4 rounded-full bg-gradient-to-r from-transparent via-violet-200/80 to-transparent animate-underlinePulse" />
+
+            {/* Loading message */}
+
+            <p className="text-white/75 text-sm tracking-wide">
+              Getting your space ready…
+            </p>
+
+          </div>
         </div>
       </div>
 
+      {/* =====================================================
+          CSS
+          ===================================================== */}
+
       <style>{`
-        /* =========================================================
+
+        /* =====================================================
            AURORA
-           ========================================================= */
+           ===================================================== */
 
         .ib-aurora-layer {
           mix-blend-mode: screen;
@@ -270,9 +366,10 @@ export default function IntroScreen({ name = "Pollobi", onDone }) {
           }
         }
 
-        /* =========================================================
+
+        /* =====================================================
            VIGNETTE
-           ========================================================= */
+           ===================================================== */
 
         .ib-vignette {
           background:
@@ -284,9 +381,10 @@ export default function IntroScreen({ name = "Pollobi", onDone }) {
             );
         }
 
-        /* =========================================================
-           PARTICLES
-           ========================================================= */
+
+        /* =====================================================
+           BACKGROUND PARTICLES
+           ===================================================== */
 
         .ib-particle {
           background: rgba(255, 255, 255, 0.82);
@@ -305,6 +403,7 @@ export default function IntroScreen({ name = "Pollobi", onDone }) {
         }
 
         @keyframes ibParticleFloat {
+
           0% {
             transform: translateY(0) scale(0.8);
             opacity: 0;
@@ -327,103 +426,145 @@ export default function IntroScreen({ name = "Pollobi", onDone }) {
             transform: translateY(0) scale(0.8);
             opacity: 0;
           }
+
         }
 
-        /* =========================================================
-           GLASS CONTENT CARD
-           ========================================================= */
 
-        .ib-glass-card {
-          padding: 30px 30px 28px;
+        /* =====================================================
+           BOTTOM GLASS CARD
+           ===================================================== */
+
+        .ib-bottom-card {
+
+          position: relative;
+
+          width: min(88vw, 360px);
+
+          padding: 26px 26px 24px;
 
           border-radius: 28px;
 
           background:
             linear-gradient(
               135deg,
-              rgba(255, 255, 255, 0.075),
-              rgba(255, 255, 255, 0.025)
+              rgba(255, 255, 255, 0.105),
+              rgba(255, 255, 255, 0.035)
             );
 
-          border: 1px solid rgba(255, 255, 255, 0.10);
+          border:
+            1px solid rgba(255, 255, 255, 0.13);
 
           box-shadow:
-            0 10px 40px rgba(0, 0, 0, 0.12),
-            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            0 18px 55px rgba(0, 0, 0, 0.22),
+            inset 0 1px 0 rgba(255, 255, 255, 0.10);
 
-          backdrop-filter: blur(6px);
-          -webkit-backdrop-filter: blur(6px);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+
+          text-align: center;
         }
 
-        /* =========================================================
-           CONTENT ENTRANCE
-           ========================================================= */
 
-        .animate-introFade {
+        /* =====================================================
+           CARD ENTER:
+           BOTTOM → BLUR → CLEAR
+           ===================================================== */
+
+        .animate-bottomCard {
+
           animation:
-            introContent
-            1.4s
+            bottomCardAppear
+            1.5s
             cubic-bezier(0.22, 1, 0.36, 1)
             both;
+
         }
 
-        @keyframes introContent {
+        @keyframes bottomCardAppear {
+
           0% {
             opacity: 0;
-            transform: translateY(18px) scale(0.97);
-            filter: blur(6px);
+
+            transform:
+              translateY(45px)
+              scale(0.95);
+
+            filter: blur(10px);
           }
 
-          60% {
-            filter: blur(0);
+          55% {
+            opacity: 0.85;
+            filter: blur(2px);
           }
 
           100% {
             opacity: 1;
-            transform: translateY(0) scale(1);
+
+            transform:
+              translateY(0)
+              scale(1);
+
             filter: blur(0);
           }
+
         }
 
-        /* =========================================================
-           MAIN TEXT GLOW
-           ========================================================= */
+
+        /* =====================================================
+           HI POLLOBI PURPLE GLOW
+           ===================================================== */
 
         .animate-introGlow {
+
           animation:
             introTextGlow
             3.2s
             ease-in-out
             infinite;
+
         }
 
         @keyframes introTextGlow {
+
           0%,
           100% {
+
             text-shadow:
-              0 2px 14px rgba(196, 181, 253, 0.35);
+              0 2px 14px
+              rgba(196, 181, 253, 0.35);
+
           }
 
           50% {
+
             text-shadow:
-              0 2px 22px rgba(196, 181, 253, 0.65),
-              0 0 36px rgba(168, 85, 247, 0.20);
+              0 2px 22px
+              rgba(196, 181, 253, 0.72),
+
+              0 0 38px
+              rgba(168, 85, 247, 0.24);
+
           }
+
         }
 
-        /* =========================================================
+
+        /* =====================================================
            UNDERLINE
-           ========================================================= */
+           ===================================================== */
 
         .animate-underlinePulse {
+
           animation:
             underlinePulse
             2.8s
             ease-in-out
             infinite;
+
         }
 
         @keyframes underlinePulse {
+
           0%,
           100% {
             opacity: 0.45;
@@ -434,37 +575,275 @@ export default function IntroScreen({ name = "Pollobi", onDone }) {
             opacity: 1;
             transform: scaleX(1);
           }
+
         }
 
-        /* =========================================================
-           MOBILE OPTIMIZATION
-           ========================================================= */
+
+        /* =====================================================
+           HEART ORIGIN GLOW
+           ===================================================== */
+
+        .heart-origin-glow {
+
+          position: absolute;
+
+          left: 50%;
+          bottom: 0;
+
+          width: 80px;
+          height: 50px;
+
+          transform: translateX(-50%);
+
+          border-radius: 50%;
+
+          background:
+            radial-gradient(
+              ellipse,
+              rgba(244, 114, 182, 0.35),
+              transparent 70%
+            );
+
+          filter: blur(12px);
+
+          animation:
+            heartOriginGlow
+            2.5s
+            ease-in-out
+            infinite;
+
+        }
+
+        @keyframes heartOriginGlow {
+
+          0%,
+          100% {
+            opacity: 0.25;
+            transform: translateX(-50%) scale(0.8);
+          }
+
+          50% {
+            opacity: 0.8;
+            transform: translateX(-50%) scale(1.25);
+          }
+
+        }
+
+
+        /* =====================================================
+           CENTRAL HEART
+           ===================================================== */
+
+        .heart-origin {
+
+          position: absolute;
+
+          left: 50%;
+          bottom: -2px;
+
+          transform: translateX(-50%);
+
+          font-size: 17px;
+
+          filter:
+            drop-shadow(
+              0 0 7px
+              rgba(244, 114, 182, 0.75)
+            );
+
+          animation:
+            heartOrigin
+            2.5s
+            ease-out
+            infinite;
+
+        }
+
+        @keyframes heartOrigin {
+
+          0% {
+            opacity: 0;
+            transform:
+              translateX(-50%)
+              translateY(10px)
+              scale(0.5);
+          }
+
+          20% {
+            opacity: 1;
+          }
+
+          55% {
+            opacity: 0.7;
+
+            transform:
+              translateX(-50%)
+              translateY(-20px)
+              scale(1);
+          }
+
+          100% {
+            opacity: 0;
+
+            transform:
+              translateX(-50%)
+              translateY(-45px)
+              scale(0.7);
+          }
+
+        }
+
+
+        /* =====================================================
+           HEART PARTICLES
+           ===================================================== */
+
+        .heart-particle {
+
+          position: absolute;
+
+          left: 50%;
+          bottom: 0;
+
+          font-size: var(--size);
+
+          opacity: 0;
+
+          filter:
+            drop-shadow(
+              0 0 5px
+              rgba(244, 114, 182, 0.70)
+            );
+
+          animation-name: heartBurst;
+
+          animation-timing-function:
+            cubic-bezier(0.22, 0.61, 0.36, 1);
+
+          animation-iteration-count: infinite;
+
+          will-change:
+            transform,
+            opacity;
+
+        }
+
+        @keyframes heartBurst {
+
+          0% {
+
+            opacity: 0;
+
+            transform:
+              translateX(
+                calc(-50% + var(--spread))
+              )
+              translateY(15px)
+              scale(0.35)
+              rotate(0deg);
+
+          }
+
+          10% {
+            opacity: 1;
+          }
+
+          35% {
+
+            opacity: 0.95;
+
+            transform:
+              translateX(
+                calc(-50% + var(--spread))
+              )
+              translateY(-80px)
+              scale(0.95)
+              rotate(calc(var(--rotate) * 0.3));
+
+          }
+
+          65% {
+
+            opacity: 0.65;
+
+          }
+
+          100% {
+
+            opacity: 0;
+
+            transform:
+              translateX(
+                calc(
+                  -50% +
+                  var(--spread) +
+                  var(--drift)
+                )
+              )
+              translateY(
+                calc(-1 * var(--rise))
+              )
+              scale(0.72)
+              rotate(var(--rotate));
+
+          }
+
+        }
+
+
+        /* =====================================================
+           MOBILE
+           ===================================================== */
 
         @media (max-width: 640px) {
-          .ib-glass-card {
-            padding: 26px 24px 24px;
+
+          .ib-bottom-card {
+
+            width: min(90vw, 350px);
+
+            padding:
+              24px
+              22px
+              22px;
+
             border-radius: 24px;
+
           }
 
           .ib-cloud {
             filter: blur(65px);
           }
+
+          .heart-particle {
+            font-size:
+              calc(var(--size) * 0.9);
+          }
+
         }
 
-        /* =========================================================
+
+        /* =====================================================
            REDUCED MOTION
-           ========================================================= */
+           ===================================================== */
 
         @media (prefers-reduced-motion: reduce) {
+
           .ib-aurora-layer,
           .ib-cloud,
           .ib-particle,
-          .animate-introFade,
+          .animate-bottomCard,
           .animate-introGlow,
-          .animate-underlinePulse {
+          .animate-underlinePulse,
+          .heart-origin-glow,
+          .heart-origin,
+          .heart-particle {
+
             animation: none !important;
+
           }
+
         }
+
       `}</style>
     </div>
   );
