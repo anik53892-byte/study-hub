@@ -213,6 +213,15 @@ export default function FolderPage() {
           </div>
         )}
 
+        <div className="relative bg-white/40 backdrop-blur-xl border border-white/55 rounded-2xl px-4 py-4 mb-5 shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] min-h-[3.5rem] flex items-center justify-center">
+          <p
+            className={`text-center font-serif italic font-extrabold text-base sm:text-lg text-violet-800 [text-shadow:0_2px_8px_rgba(91,33,182,0.15)] transition-opacity duration-500
+              ${quoteVisible ? "opacity-100" : "opacity-0"}`}
+          >
+            "{FOLDER_MESSAGES[msgIndex]}"
+          </p>
+        </div>
+
         {/* ===== Notes: write directly inside this folder ===== */}
         {folder?.parent_id &&
           content !== null &&
@@ -235,15 +244,6 @@ export default function FolderPage() {
               />
             )
           ))}
-
-        <div className="relative bg-white/40 backdrop-blur-xl border border-white/55 rounded-2xl px-4 py-4 mb-5 shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] min-h-[3.5rem] flex items-center justify-center">
-          <p
-            className={`text-center font-serif italic font-extrabold text-base sm:text-lg text-violet-800 [text-shadow:0_2px_8px_rgba(91,33,182,0.15)] transition-opacity duration-500
-              ${quoteVisible ? "opacity-100" : "opacity-0"}`}
-          >
-            "{FOLDER_MESSAGES[msgIndex]}"
-          </p>
-        </div>
 
         {error && <p className="text-sm text-rose-700 bg-rose-100/70 border border-rose-200 backdrop-blur rounded-xl px-3 py-2 mb-3">{error}</p>}
 
