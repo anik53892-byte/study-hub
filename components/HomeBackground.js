@@ -45,9 +45,9 @@ export default function HomeBackground() {
           stroke-width: 1.0;
           animation: gbPulse 6s ease-in-out infinite;
         }
-        .gb-trail-1 { stroke: rgba(255, 255, 255, 0.72); animation-delay: 0s; }
-        .gb-trail-2 { stroke: rgba(196, 181, 253, 0.68); animation-delay: 1.2s; }
-        .gb-trail-3 { stroke: rgba(255, 255, 255, 0.58); animation-delay: 2.4s; }
+        .gb-trail-1 { stroke: rgba(75, 105, 190, 0.75); animation-delay: 0s; }
+        .gb-trail-2 { stroke: rgba(105, 145, 220, 0.70); animation-delay: 1.2s; }
+        .gb-trail-3 { stroke: rgba(65, 80, 165, 0.65); animation-delay: 2.4s; }
 
         .gb-cluster-tl { animation: gbSpin 130s linear infinite; transform-origin: center; }
         .gb-cluster-br { animation: gbSpin 150s linear infinite reverse; transform-origin: center; }
