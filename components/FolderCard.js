@@ -29,7 +29,7 @@ export default function FolderCard({ folder, onOpen, onMenu, count, compact = fa
           }}
           onPointerDown={(e) => e.stopPropagation()}
           className={`absolute z-10 rounded-full bg-white/70 flex items-center justify-center text-violet-700 font-bold active:scale-90 transition-transform
-            ${compact ? "top-1 right-1 w-8 h-8 text-lg" : "top-2 right-2 w-10 h-10 text-xl"}`}
+            ${compact ? "top-1 right-1 w-12 h-12 text-3xl" : "top-2 right-2 w-11 h-11 text-3xl"}`}
           aria-label="Folder options"
         >
           ⋮
