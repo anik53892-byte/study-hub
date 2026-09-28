@@ -14,16 +14,19 @@ import {
   deleteFolder,
   reorderFolders,
   duplicateFolder,
+  copyFolderTo,
   moveFolder,
   createLesson,
   updateLessonMeta,
   deleteLesson,
   reorderLessons,
   duplicateLesson,
+  copyLessonTo,
   moveLesson,
   fetchAllFolders,
   invalidMoveTargets,
 } from "@/lib/db";
+import { useClipboard, setClipboard, clearClipboard } from "@/lib/clipboard";
 import { withRetry } from "@/lib/retry";
 import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
 import { autoColor, autoIcon } from "@/lib/colors";
@@ -54,12 +57,14 @@ export default function FolderPage() {
   const router = useRouter();
   const { user } = useAuth();
   const isOwner = !!user;
+  const clip = useClipboard();
 
   const [folder, setFolder] = useState(null);
   const [ancestors, setAncestors] = useState([]);
   const [subfolders, setSubfolders] = useState(null);
   const [lessons, setLessons] = useState(null);
   const [error, setError] = useState("");
+  const [pasting, setPasting] = useState(false);
 
   const [msgIndex, setMsgIndex] = useState(0);
   const [quoteVisible, setQuoteVisible] = useState(true);
@@ -74,6 +79,12 @@ export default function FolderPage() {
   const [moveLessonOpen, setMoveLessonOpen] = useState(false);
   const [confirmDeleteFolder, setConfirmDeleteFolder] = useState(null);
   const [confirmDeleteLesson, setConfirmDeleteLesson] = useState(null);
+
+  // ----- Menu for the folder you're currently viewing (not its children) -----
+  const [folderMenuOpen, setFolderMenuOpen] = useState(false);
+  const [editThisFolderOpen, setEditThisFolderOpen] = useState(false);
+  const [moveThisFolderOpen, setMoveThisFolderOpen] = useState(false);
+  const [confirmDeleteThisFolder, setConfirmDeleteThisFolder] = useState(false);
 
   // ----- Folder notes (write directly on the folder page) -----
   const [content, setContent] = useState(null); // null = still loading
@@ -176,21 +187,60 @@ export default function FolderPage() {
   }
 
   async function moveFolderUpDown(index, direction) {
-    const next = [...subfolders];
     const swap = index + direction;
-    if (swap < 0 || swap >= next.length) return;
+    if (!subfolders || swap < 0 || swap >= subfolders.length) return;
+    const prev = subfolders;
+    const next = [...prev];
     [next[index], next[swap]] = [next[swap], next[index]];
     setSubfolders(next);
-    reorderFolders(next.map((f) => f.id)).catch(() => setError("Couldn't save the new order."));
+    try {
+      await reorderFolders(next.map((f) => f.id));
+    } catch {
+      setSubfolders(prev);
+      setError("Couldn't save the new order.");
+    }
   }
 
   async function moveLessonUpDown(index, direction) {
-    const next = [...lessons];
     const swap = index + direction;
-    if (swap < 0 || swap >= next.length) return;
+    if (!lessons || swap < 0 || swap >= lessons.length) return;
+    const prev = lessons;
+    const next = [...prev];
     [next[index], next[swap]] = [next[swap], next[index]];
     setLessons(next);
-    reorderLessons(next.map((l) => l.id)).catch(() => setError("Couldn't save the new order."));
+    try {
+      await reorderLessons(next.map((l) => l.id));
+    } catch {
+      setLessons(prev);
+      setError("Couldn't save the new order.");
+    }
+  }
+
+  // ----- Copy / Paste -----
+  function handleCopy(item, type) {
+    setClipboard({ type, id: item.id, name: type === "lesson" ? item.title : item.name });
+    setMenuFolder(null);
+    setMenuLesson(null);
+    setFolderMenuOpen(false);
+  }
+
+  async function pasteInto(targetFolderId) {
+    if (!clip || pasting) return;
+    setPasting(true);
+    setError("");
+    try {
+      if (clip.type === "folder") {
+        const copy = await copyFolderTo(clip.id, targetFolderId);
+        if (targetFolderId === id) setSubfolders((prev) => [...(prev || []), copy]);
+      } else {
+        const copy = await copyLessonTo(clip.id, targetFolderId);
+        if (targetFolderId === id) setLessons((prev) => [...(prev || []), copy]);
+      }
+    } catch (e) {
+      setError(e?.message || "Couldn't paste here.");
+    } finally {
+      setPasting(false);
+    }
   }
 
   const trail = [
@@ -205,11 +255,20 @@ export default function FolderPage() {
 
       <div className="max-w-2xl mx-auto px-4 pt-6">
         {folder && (
-          <div className="rounded-2xl bg-white/40 backdrop-blur-md border border-white/55 shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] p-4 mb-4 flex items-center gap-3">
+          <div className="relative rounded-2xl bg-white/40 backdrop-blur-md border border-white/55 shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] p-4 mb-4 flex items-center gap-3">
             <span className="text-2xl" style={{ filter: "drop-shadow(0 2px 6px rgba(124,58,237,0.25))" }}>
               {folder.icon}
             </span>
-            <h1 className="font-semibold text-lg text-[#3f3355]">{folder.name}</h1>
+            <h1 className="font-semibold text-lg text-[#3f3355] flex-1 min-w-0 truncate">{folder.name}</h1>
+            {isOwner && (
+              <button
+                onClick={() => setFolderMenuOpen(true)}
+                aria-label="Folder options"
+                className="w-11 h-11 shrink-0 rounded-full bg-white/70 flex items-center justify-center text-violet-700 text-xl font-bold active:scale-90 transition"
+              >
+                ⋮
+              </button>
+            )}
           </div>
         )}
 
@@ -342,6 +401,24 @@ export default function FolderPage() {
 
       {isOwner && (
         <div className="fixed bottom-6 right-6 sm:right-1/2 sm:translate-x-[calc(18rem)] flex flex-col gap-2 items-end">
+          {clip && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => pasteInto(id)}
+                disabled={pasting}
+                className="text-violet-700 bg-white/90 backdrop-blur rounded-full pl-4 pr-3 py-2.5 text-xs font-medium active:scale-95 transition shadow-[0_0_0_1px_rgba(255,255,255,0.4)_inset,0_8px_20px_rgba(90,70,120,0.25)] disabled:opacity-50 max-w-[13rem] truncate"
+              >
+                {pasting ? "Pasting…" : `📥 Paste "${clip.name}"`}
+              </button>
+              <button
+                onClick={clearClipboard}
+                aria-label="Clear clipboard"
+                className="w-8 h-8 shrink-0 rounded-full bg-white/70 text-violet-700 text-xs active:scale-90 transition"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           <button
             onClick={() => setAddLessonOpen(true)}
             className="text-white rounded-full px-5 py-3 text-sm font-medium active:scale-95 transition
@@ -393,6 +470,79 @@ export default function FolderPage() {
         }}
       />
 
+      {/* Current folder's own menu (the folder you're viewing right now) */}
+      <Modal
+        open={folderMenuOpen && !editThisFolderOpen && !moveThisFolderOpen}
+        onClose={() => setFolderMenuOpen(false)}
+        title={folder?.name || ""}
+      >
+        <div className="space-y-2">
+          <MenuButton label="✏️ Rename & recolor" onClick={() => setEditThisFolderOpen(true)} />
+          <MenuButton label="📋 Copy" onClick={() => handleCopy(folder, "folder")} />
+          <MenuButton label="➡️ Move to…" onClick={() => setMoveThisFolderOpen(true)} />
+          {clip && (
+            <MenuButton
+              label={`📥 Paste "${clip.name}" inside`}
+              onClick={async () => {
+                await pasteInto(folder.id);
+                setFolderMenuOpen(false);
+              }}
+            />
+          )}
+          <MenuButton
+            label="🗑️ Delete this folder"
+            danger
+            onClick={() => {
+              setConfirmDeleteThisFolder(true);
+              setFolderMenuOpen(false);
+            }}
+          />
+        </div>
+      </Modal>
+
+      <EditFolderModal
+        open={editThisFolderOpen}
+        folder={folder}
+        onClose={() => {
+          setEditThisFolderOpen(false);
+          setFolderMenuOpen(false);
+        }}
+        onSave={async (patch) => {
+          const updated = await updateFolder(folder.id, patch);
+          setFolder(updated);
+          setEditThisFolderOpen(false);
+          setFolderMenuOpen(false);
+        }}
+      />
+
+      <MoveFolderPicker
+        open={moveThisFolderOpen}
+        folder={folder}
+        onClose={() => {
+          setMoveThisFolderOpen(false);
+          setFolderMenuOpen(false);
+        }}
+        onMoved={async () => {
+          setMoveThisFolderOpen(false);
+          setFolderMenuOpen(false);
+          await load();
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteThisFolder}
+        title="Delete this folder?"
+        message={`"${folder?.name}" and everything inside it will be permanently deleted. This can't be undone.`}
+        danger
+        confirmLabel="Delete everything"
+        onCancel={() => setConfirmDeleteThisFolder(false)}
+        onConfirm={async () => {
+          await deleteFolder(folder.id);
+          setConfirmDeleteThisFolder(false);
+          router.push(folder.parent_id ? `/folder/${folder.parent_id}` : "/home");
+        }}
+      />
+
       {/* Sub-folder menu */}
       <Modal
         open={!!menuFolder && !editFolderOpen && !moveFolderOpen}
@@ -402,6 +552,7 @@ export default function FolderPage() {
         <div className="space-y-2">
           <MenuButton label="📂 Open" onClick={() => router.push(`/folder/${menuFolder.id}`)} />
           <MenuButton label="✏️ Rename & recolor" onClick={() => setEditFolderOpen(true)} />
+          <MenuButton label="📋 Copy" onClick={() => handleCopy(menuFolder, "folder")} />
           <MenuButton
             label="📄 Duplicate"
             onClick={async () => {
@@ -411,6 +562,15 @@ export default function FolderPage() {
             }}
           />
           <MenuButton label="➡️ Move to…" onClick={() => setMoveFolderOpen(true)} />
+          {clip && (
+            <MenuButton
+              label={`📥 Paste "${clip.name}" inside`}
+              onClick={async () => {
+                await pasteInto(menuFolder.id);
+                setMenuFolder(null);
+              }}
+            />
+          )}
           <MenuButton
             label="🗑️ Delete folder"
             danger
@@ -460,6 +620,7 @@ export default function FolderPage() {
         <div className="space-y-2">
           <MenuButton label="📖 Open" onClick={() => router.push(`/lesson/${menuLesson.id}`)} />
           <MenuButton label="✏️ Rename & recolor" onClick={() => setRenameLessonOpen(true)} />
+          <MenuButton label="📋 Copy" onClick={() => handleCopy(menuLesson, "lesson")} />
           <MenuButton
             label="📄 Duplicate"
             onClick={async () => {
@@ -499,6 +660,7 @@ export default function FolderPage() {
         open={moveLessonOpen}
         allowRoot={false}
         title="Move lesson to…"
+        currentId={menuLesson?.folder_id}
         onClose={() => {
           setMoveLessonOpen(false);
           setMenuLesson(null);
@@ -557,6 +719,7 @@ function MoveFolderPicker({ open, folder, onClose, onMoved }) {
       open={open && excludeIds !== null}
       onClose={onClose}
       excludeIds={excludeIds}
+      currentId={folder.parent_id ?? null}
       onSelect={async (targetId) => {
         await moveFolder(folder.id, targetId);
         onMoved(folder.id);
