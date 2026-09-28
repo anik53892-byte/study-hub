@@ -10,10 +10,12 @@ import {
   updateFolder,
   deleteFolder,
   duplicateFolder,
+  copyFolderTo,
   moveFolder,
   fetchAllFolders,
   invalidMoveTargets,
 } from "@/lib/db";
+import { useClipboard, setClipboard, clearClipboard } from "@/lib/clipboard";
 import { withRetry } from "@/lib/retry";
 import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
 import { autoColor, autoIcon } from "@/lib/colors";
@@ -40,6 +42,7 @@ export default function HomePage() {
   const router = useRouter();
   const { user } = useAuth();
   const isOwner = !!user;
+  const clip = useClipboard();
 
   const [folders, setFolders] = useState(null);
   const [counts, setCounts] = useState({});
@@ -51,6 +54,7 @@ export default function HomePage() {
   const [moveOpen, setMoveOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [error, setError] = useState("");
+  const [pasting, setPasting] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -84,6 +88,28 @@ export default function HomePage() {
   async function handleLogout() {
     await supabase.auth.signOut();
     router.refresh();
+  }
+
+  function handleCopy(folder) {
+    setClipboard({ type: "folder", id: folder.id, name: folder.name });
+    setMenuFolder(null);
+  }
+
+  // Home only holds folders (lessons must live inside a folder), so pasting a
+  // copied lesson at the top level isn't offered here.
+  async function pasteHere() {
+    if (!clip || clip.type !== "folder" || pasting) return;
+    setPasting(true);
+    setError("");
+    try {
+      const copy = await copyFolderTo(clip.id, null);
+      setFolders((prev) => [...(prev || []), copy]);
+      setCounts((prev) => ({ ...prev, [copy.id]: 0 }));
+    } catch (e) {
+      setError(e?.message || "Couldn't paste here.");
+    } finally {
+      setPasting(false);
+    }
   }
 
   return (
@@ -134,13 +160,33 @@ export default function HomePage() {
       </div>
 
       {isOwner && (
-        <button
-          onClick={() => setAddOpen(true)}
-          className="fixed bottom-6 right-6 sm:right-1/2 sm:translate-x-[calc(18rem)] text-white rounded-full px-5 py-3 text-sm font-medium active:scale-95 transition
-            bg-gradient-to-br from-violet-400 to-violet-600 shadow-[0_0_0_1px_rgba(255,255,255,0.25)_inset,0_8px_22px_rgba(124,58,237,0.45)]"
-        >
-          + New Folder
-        </button>
+        <div className="fixed bottom-6 right-6 sm:right-1/2 sm:translate-x-[calc(18rem)] flex flex-col gap-2 items-end">
+          {clip && clip.type === "folder" && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={pasteHere}
+                disabled={pasting}
+                className="text-violet-700 bg-white/90 backdrop-blur rounded-full pl-4 pr-3 py-2.5 text-xs font-medium active:scale-95 transition shadow-[0_0_0_1px_rgba(255,255,255,0.4)_inset,0_8px_20px_rgba(90,70,120,0.25)] disabled:opacity-50 max-w-[13rem] truncate"
+              >
+                {pasting ? "Pasting…" : `📥 Paste "${clip.name}"`}
+              </button>
+              <button
+                onClick={clearClipboard}
+                aria-label="Clear clipboard"
+                className="w-8 h-8 shrink-0 rounded-full bg-white/70 text-violet-700 text-xs active:scale-90 transition"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setAddOpen(true)}
+            className="text-white rounded-full px-5 py-3 text-sm font-medium active:scale-95 transition
+              bg-gradient-to-br from-violet-400 to-violet-600 shadow-[0_0_0_1px_rgba(255,255,255,0.25)_inset,0_8px_22px_rgba(124,58,237,0.45)]"
+          >
+            + New Folder
+          </button>
+        </div>
       )}
 
       <AddFolderModal
@@ -159,6 +205,7 @@ export default function HomePage() {
         <div className="space-y-2">
           <MenuButton label="📂 Open" onClick={() => router.push(`/folder/${menuFolder.id}`)} />
           <MenuButton label="✏️ Rename & recolor" onClick={() => setEditOpen(true)} />
+          <MenuButton label="📋 Copy" onClick={() => handleCopy(menuFolder)} />
           <MenuButton
             label="📄 Duplicate"
             onClick={async () => {
@@ -169,6 +216,24 @@ export default function HomePage() {
             }}
           />
           <MenuButton label="➡️ Move to…" onClick={() => setMoveOpen(true)} />
+          {clip && clip.type === "folder" && (
+            <MenuButton
+              label={`📥 Paste "${clip.name}" inside`}
+              onClick={async () => {
+                setPasting(true);
+                setError("");
+                try {
+                  const copy = await copyFolderTo(clip.id, menuFolder.id);
+                  if (menuFolder.id === null) setFolders((prev) => [...(prev || []), copy]);
+                } catch (e) {
+                  setError(e?.message || "Couldn't paste here.");
+                } finally {
+                  setPasting(false);
+                  setMenuFolder(null);
+                }
+              }}
+            />
+          )}
           <MenuButton
             label="🗑️ Delete folder"
             danger
@@ -242,6 +307,7 @@ function MoveFolderPicker({ open, folder, onClose, onMoved }) {
       open={open && excludeIds !== null}
       onClose={onClose}
       excludeIds={excludeIds}
+      currentId={folder.parent_id ?? null}
       onSelect={async (targetId) => {
         await moveFolder(folder.id, targetId);
         onMoved(folder.id);
