@@ -36,6 +36,7 @@ import LiveBackground from "@/components/LiveBackground";
 import FolderCard from "@/components/FolderCard";
 import IconPicker from "@/components/IconPicker";
 import SaveStatus from "@/components/SaveStatus";
+import SaveToast from "@/components/SaveToast";
 import { Modal, ConfirmDialog } from "@/components/Modal";
 import FolderPickerModal from "@/components/FolderPickerModal";
 import { EmptyState, ListSkeleton } from "@/components/EmptyState";
@@ -273,7 +274,7 @@ export default function FolderPage() {
 
   return (
     <div className="min-h-screen pb-56 relative">
-      <LiveBackground heartCount={7} />
+      <LiveBackground heartCount={7} /> <SaveToast status={saveStatus} />
       <Breadcrumbs trail={trail} isOwner={isOwner} onLogout={handleLogout} variant="premium" />
 
       <div className="max-w-2xl mx-auto px-4 pt-6">
