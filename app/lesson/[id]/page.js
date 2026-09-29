@@ -10,6 +10,7 @@ import { useRealtimeRefresh } from "@/lib/useRealtimeRefresh";
 import { useAuth } from "@/lib/useAuth";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import SaveStatus from "@/components/SaveStatus";
+import SaveToast from "@/components/SaveToast";
 import { ListSkeleton } from "@/components/EmptyState";
 
 const LessonEditor = dynamic(
@@ -264,7 +265,7 @@ export default function LessonPage() {
         onLogout={handleLogout}
         variant="premium"
       />
-
+<SaveToast status={status} />
       {/* =========================
           TITLE + ACTIONS
          ========================= */}
