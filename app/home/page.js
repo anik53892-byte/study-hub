@@ -23,7 +23,6 @@ import { useAuth } from "@/lib/useAuth";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import FolderCard from "@/components/FolderCard";
 import HomeBackground from "@/components/HomeBackground";
-import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
 import { Modal, ConfirmDialog } from "@/components/Modal";
 import FolderPickerModal from "@/components/FolderPickerModal";
@@ -90,25 +89,67 @@ export default function HomePage() {
     router.refresh();
   }
 
+  // "Copy" leaves the original — pasting makes a new duplicate.
+  // "Cut" marks the folder to be MOVED — pasting relocates it (no duplicate)
+  // and clears the clipboard right after, like cut/paste elsewhere.
   function handleCopy(folder) {
-    setClipboard({ type: "folder", id: folder.id, name: folder.name });
+    setClipboard({ type: "folder", id: folder.id, name: folder.name, mode: "copy" });
     setMenuFolder(null);
   }
 
-  // Home only holds folders (lessons must live inside a folder), so pasting a
-  // copied lesson at the top level isn't offered here.
+  function handleCut(folder) {
+    setClipboard({ type: "folder", id: folder.id, name: folder.name, mode: "move" });
+    setMenuFolder(null);
+  }
+
+  // Home only holds folders (lessons must live inside a folder), so a copied/cut
+  // lesson can't be pasted at the top level.
   async function pasteHere() {
     if (!clip || clip.type !== "folder" || pasting) return;
     setPasting(true);
     setError("");
     try {
-      const copy = await copyFolderTo(clip.id, null);
-      setFolders((prev) => [...(prev || []), copy]);
-      setCounts((prev) => ({ ...prev, [copy.id]: 0 }));
+      if (clip.mode === "move") {
+        const all = await fetchAllFolders();
+        if (invalidMoveTargets(all, clip.id).has(null)) {
+          throw new Error("Can't move a folder inside itself.");
+        }
+        await moveFolder(clip.id, null);
+        clearClipboard();
+        await load();
+      } else {
+        const copy = await copyFolderTo(clip.id, null);
+        setFolders((prev) => [...(prev || []), copy]);
+        setCounts((prev) => ({ ...prev, [copy.id]: 0 }));
+      }
     } catch (e) {
       setError(e?.message || "Couldn't paste here.");
     } finally {
       setPasting(false);
+    }
+  }
+
+  async function pasteInside(targetFolderId) {
+    if (!clip || clip.type !== "folder" || pasting) return;
+    setPasting(true);
+    setError("");
+    try {
+      if (clip.mode === "move") {
+        const all = await fetchAllFolders();
+        if (invalidMoveTargets(all, clip.id).has(targetFolderId)) {
+          throw new Error("Can't move a folder inside itself.");
+        }
+        await moveFolder(clip.id, targetFolderId);
+        clearClipboard();
+        await load();
+      } else {
+        await copyFolderTo(clip.id, targetFolderId);
+      }
+    } catch (e) {
+      setError(e?.message || "Couldn't paste here.");
+    } finally {
+      setPasting(false);
+      setMenuFolder(null);
     }
   }
 
@@ -168,7 +209,7 @@ export default function HomePage() {
                 disabled={pasting}
                 className="text-violet-700 bg-white/90 backdrop-blur rounded-full pl-4 pr-3 py-2.5 text-xs font-medium active:scale-95 transition shadow-[0_0_0_1px_rgba(255,255,255,0.4)_inset,0_8px_20px_rgba(90,70,120,0.25)] disabled:opacity-50 max-w-[13rem] truncate"
               >
-                {pasting ? "Pasting…" : `📥 Paste "${clip.name}"`}
+                {pasting ? "Working…" : clip.mode === "move" ? `✂️ Move "${clip.name}" here` : `📥 Paste "${clip.name}"`}
               </button>
               <button
                 onClick={clearClipboard}
@@ -204,8 +245,9 @@ export default function HomePage() {
       <Modal open={!!menuFolder && !editOpen && !moveOpen} onClose={() => setMenuFolder(null)} title={menuFolder?.name || ""}>
         <div className="space-y-2">
           <MenuButton label="📂 Open" onClick={() => router.push(`/folder/${menuFolder.id}`)} />
-          <MenuButton label="✏️ Rename & recolor" onClick={() => setEditOpen(true)} />
+          <MenuButton label="✏️ Rename" onClick={() => setEditOpen(true)} />
           <MenuButton label="📋 Copy" onClick={() => handleCopy(menuFolder)} />
+          <MenuButton label="✂️ Cut" onClick={() => handleCut(menuFolder)} />
           <MenuButton
             label="📄 Duplicate"
             onClick={async () => {
@@ -218,20 +260,8 @@ export default function HomePage() {
           <MenuButton label="➡️ Move to…" onClick={() => setMoveOpen(true)} />
           {clip && clip.type === "folder" && (
             <MenuButton
-              label={`📥 Paste "${clip.name}" inside`}
-              onClick={async () => {
-                setPasting(true);
-                setError("");
-                try {
-                  const copy = await copyFolderTo(clip.id, menuFolder.id);
-                  if (menuFolder.id === null) setFolders((prev) => [...(prev || []), copy]);
-                } catch (e) {
-                  setError(e?.message || "Couldn't paste here.");
-                } finally {
-                  setPasting(false);
-                  setMenuFolder(null);
-                }
-              }}
+              label={clip.mode === "move" ? `✂️ Move "${clip.name}" inside` : `📥 Paste "${clip.name}" inside`}
+              onClick={() => pasteInside(menuFolder.id)}
             />
           )}
           <MenuButton
@@ -331,7 +361,6 @@ function MenuButton({ label, onClick, danger }) {
 
 function AddFolderModal({ open, existingCount, onClose, onCreate }) {
   const [name, setName] = useState("");
-  const [color, setColor] = useState(autoColor(existingCount));
   const [icon, setIcon] = useState(autoIcon(existingCount));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -339,7 +368,6 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
   useEffect(() => {
     if (open) {
       setName("");
-      setColor(autoColor(existingCount));
       setIcon(autoIcon(existingCount));
       setError("");
     }
@@ -351,7 +379,7 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
     setSaving(true);
     setError("");
     try {
-      await onCreate({ name: name.trim(), color, icon });
+      await onCreate({ name: name.trim(), color: autoColor(existingCount), icon });
     } catch {
       setError("Couldn't save the folder. Try again.");
     } finally {
@@ -369,9 +397,8 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
           onChange={(e) => setName(e.target.value)}
           className="w-full rounded-xl border border-violet-100 bg-violet-50/40 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-violet-300"
         />
-        <p className="text-xs text-ink/40 -mb-2">Icon and color auto-picked — change if you like</p>
+        <p className="text-xs text-ink/40 -mb-2">Icon auto-picked — change if you like</p>
         <IconPicker value={icon} onChange={setIcon} />
-        <ColorPicker value={color} onChange={setColor} />
         {error && <p className="text-sm text-rose-500">{error}</p>}
         <button
           disabled={saving || !name.trim()}
@@ -386,14 +413,12 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
 
 function EditFolderModal({ open, folder, onClose, onSave }) {
   const [name, setName] = useState("");
-  const [color, setColor] = useState("violet");
   const [icon, setIcon] = useState("📁");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (folder) {
       setName(folder.name);
-      setColor(folder.color);
       setIcon(folder.icon);
     }
   }, [folder]);
@@ -404,7 +429,7 @@ function EditFolderModal({ open, folder, onClose, onSave }) {
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave({ name: name.trim(), color, icon });
+      await onSave({ name: name.trim(), color: folder.color, icon });
     } finally {
       setSaving(false);
     }
@@ -419,7 +444,6 @@ function EditFolderModal({ open, folder, onClose, onSave }) {
           className="w-full rounded-xl border border-violet-100 bg-violet-50/40 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-violet-300"
         />
         <IconPicker value={icon} onChange={setIcon} />
-        <ColorPicker value={color} onChange={setColor} />
         <button
           disabled={saving || !name.trim()}
           className="w-full rounded-xl bg-violet-500 text-white py-3 text-sm font-medium disabled:opacity-50"
