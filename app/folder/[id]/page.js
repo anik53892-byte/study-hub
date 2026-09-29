@@ -34,7 +34,6 @@ import { useAuth } from "@/lib/useAuth";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import LiveBackground from "@/components/LiveBackground";
 import FolderCard from "@/components/FolderCard";
-import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
 import SaveStatus from "@/components/SaveStatus";
 import { Modal, ConfirmDialog } from "@/components/Modal";
@@ -216,9 +215,19 @@ export default function FolderPage() {
     }
   }
 
-  // ----- Copy / Paste -----
+  // ----- Copy / Cut / Paste -----
+  // "Copy" leaves the original where it is — pasting makes a new duplicate.
+  // "Cut" marks the item to be MOVED — pasting relocates the original (no duplicate)
+  // and clears the clipboard automatically, the same way cut/paste works elsewhere.
   function handleCopy(item, type) {
-    setClipboard({ type, id: item.id, name: type === "lesson" ? item.title : item.name });
+    setClipboard({ type, id: item.id, name: type === "lesson" ? item.title : item.name, mode: "copy" });
+    setMenuFolder(null);
+    setMenuLesson(null);
+    setFolderMenuOpen(false);
+  }
+
+  function handleCut(item, type) {
+    setClipboard({ type, id: item.id, name: type === "lesson" ? item.title : item.name, mode: "move" });
     setMenuFolder(null);
     setMenuLesson(null);
     setFolderMenuOpen(false);
@@ -229,12 +238,26 @@ export default function FolderPage() {
     setPasting(true);
     setError("");
     try {
-      if (clip.type === "folder") {
-        const copy = await copyFolderTo(clip.id, targetFolderId);
-        if (targetFolderId === id) setSubfolders((prev) => [...(prev || []), copy]);
+      if (clip.mode === "move") {
+        if (clip.type === "folder") {
+          const all = await fetchAllFolders();
+          if (invalidMoveTargets(all, clip.id).has(targetFolderId)) {
+            throw new Error("Can't move a folder inside itself.");
+          }
+          await moveFolder(clip.id, targetFolderId);
+        } else {
+          await moveLesson(clip.id, targetFolderId);
+        }
+        clearClipboard();
+        await load();
       } else {
-        const copy = await copyLessonTo(clip.id, targetFolderId);
-        if (targetFolderId === id) setLessons((prev) => [...(prev || []), copy]);
+        if (clip.type === "folder") {
+          const copy = await copyFolderTo(clip.id, targetFolderId);
+          if (targetFolderId === id) setSubfolders((prev) => [...(prev || []), copy]);
+        } else {
+          const copy = await copyLessonTo(clip.id, targetFolderId);
+          if (targetFolderId === id) setLessons((prev) => [...(prev || []), copy]);
+        }
       }
     } catch (e) {
       setError(e?.message || "Couldn't paste here.");
@@ -249,7 +272,7 @@ export default function FolderPage() {
   ];
 
   return (
-    <div className="min-h-screen pb-28 relative">
+    <div className="min-h-screen pb-56 relative">
       <LiveBackground heartCount={7} />
       <Breadcrumbs trail={trail} isOwner={isOwner} onLogout={handleLogout} variant="premium" />
 
@@ -387,6 +410,9 @@ export default function FolderPage() {
                 </li>
               ))}
             </ul>
+            {/* Extra breathing room so the last lesson's ↑↓⋮ buttons aren't
+                covered by the floating action buttons at the bottom. */}
+            {isOwner && <div className="h-32" />}
           </div>
         )}
 
@@ -408,7 +434,7 @@ export default function FolderPage() {
                 disabled={pasting}
                 className="text-violet-700 bg-white/90 backdrop-blur rounded-full pl-4 pr-3 py-2.5 text-xs font-medium active:scale-95 transition shadow-[0_0_0_1px_rgba(255,255,255,0.4)_inset,0_8px_20px_rgba(90,70,120,0.25)] disabled:opacity-50 max-w-[13rem] truncate"
               >
-                {pasting ? "Pasting…" : `📥 Paste "${clip.name}"`}
+                {pasting ? "Working…" : clip.mode === "move" ? `✂️ Move "${clip.name}" here` : `📥 Paste "${clip.name}"`}
               </button>
               <button
                 onClick={clearClipboard}
@@ -463,8 +489,8 @@ export default function FolderPage() {
         open={addLessonOpen}
         existingCount={lessons?.length || 0}
         onClose={() => setAddLessonOpen(false)}
-        onCreate={async (title, color) => {
-          const created = await createLesson({ folderId: id, title, color });
+        onCreate={async (title) => {
+          const created = await createLesson({ folderId: id, title, color: autoColor(lessons?.length || 0) });
           setLessons((prev) => [...(prev || []), created]);
           setAddLessonOpen(false);
         }}
@@ -477,12 +503,13 @@ export default function FolderPage() {
         title={folder?.name || ""}
       >
         <div className="space-y-2">
-          <MenuButton label="✏️ Rename & recolor" onClick={() => setEditThisFolderOpen(true)} />
+          <MenuButton label="✏️ Rename" onClick={() => setEditThisFolderOpen(true)} />
           <MenuButton label="📋 Copy" onClick={() => handleCopy(folder, "folder")} />
+          <MenuButton label="✂️ Cut" onClick={() => handleCut(folder, "folder")} />
           <MenuButton label="➡️ Move to…" onClick={() => setMoveThisFolderOpen(true)} />
           {clip && (
             <MenuButton
-              label={`📥 Paste "${clip.name}" inside`}
+              label={clip.mode === "move" ? `✂️ Move "${clip.name}" inside` : `📥 Paste "${clip.name}" inside`}
               onClick={async () => {
                 await pasteInto(folder.id);
                 setFolderMenuOpen(false);
@@ -551,8 +578,9 @@ export default function FolderPage() {
       >
         <div className="space-y-2">
           <MenuButton label="📂 Open" onClick={() => router.push(`/folder/${menuFolder.id}`)} />
-          <MenuButton label="✏️ Rename & recolor" onClick={() => setEditFolderOpen(true)} />
+          <MenuButton label="✏️ Rename" onClick={() => setEditFolderOpen(true)} />
           <MenuButton label="📋 Copy" onClick={() => handleCopy(menuFolder, "folder")} />
+          <MenuButton label="✂️ Cut" onClick={() => handleCut(menuFolder, "folder")} />
           <MenuButton
             label="📄 Duplicate"
             onClick={async () => {
@@ -564,7 +592,7 @@ export default function FolderPage() {
           <MenuButton label="➡️ Move to…" onClick={() => setMoveFolderOpen(true)} />
           {clip && (
             <MenuButton
-              label={`📥 Paste "${clip.name}" inside`}
+              label={clip.mode === "move" ? `✂️ Move "${clip.name}" inside` : `📥 Paste "${clip.name}" inside`}
               onClick={async () => {
                 await pasteInto(menuFolder.id);
                 setMenuFolder(null);
@@ -619,8 +647,9 @@ export default function FolderPage() {
       >
         <div className="space-y-2">
           <MenuButton label="📖 Open" onClick={() => router.push(`/lesson/${menuLesson.id}`)} />
-          <MenuButton label="✏️ Rename & recolor" onClick={() => setRenameLessonOpen(true)} />
+          <MenuButton label="✏️ Rename" onClick={() => setRenameLessonOpen(true)} />
           <MenuButton label="📋 Copy" onClick={() => handleCopy(menuLesson, "lesson")} />
+          <MenuButton label="✂️ Cut" onClick={() => handleCut(menuLesson, "lesson")} />
           <MenuButton
             label="📄 Duplicate"
             onClick={async () => {
@@ -648,8 +677,8 @@ export default function FolderPage() {
           setRenameLessonOpen(false);
           setMenuLesson(null);
         }}
-        onSave={async (title, color) => {
-          const updated = await updateLessonMeta(menuLesson.id, { title, color });
+        onSave={async (title) => {
+          const updated = await updateLessonMeta(menuLesson.id, { title, color: menuLesson.color });
           setLessons((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
           setRenameLessonOpen(false);
           setMenuLesson(null);
@@ -743,7 +772,6 @@ function MenuButton({ label, onClick, danger }) {
 
 function AddFolderModal({ open, existingCount, onClose, onCreate }) {
   const [name, setName] = useState("");
-  const [color, setColor] = useState(autoColor(existingCount));
   const [icon, setIcon] = useState(autoIcon(existingCount));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -751,7 +779,6 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
   useEffect(() => {
     if (open) {
       setName("");
-      setColor(autoColor(existingCount));
       setIcon(autoIcon(existingCount));
       setError("");
     }
@@ -763,7 +790,7 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
     setSaving(true);
     setError("");
     try {
-      await onCreate({ name: name.trim(), color, icon });
+      await onCreate({ name: name.trim(), color: autoColor(existingCount), icon });
     } catch {
       setError("Couldn't save the sub-folder. Try again.");
     } finally {
@@ -782,7 +809,6 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
           className="w-full rounded-xl border border-violet-100 bg-violet-50/40 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-violet-300"
         />
         <IconPicker value={icon} onChange={setIcon} />
-        <ColorPicker value={color} onChange={setColor} />
         {error && <p className="text-sm text-rose-500">{error}</p>}
         <button
           disabled={saving || !name.trim()}
@@ -797,14 +823,12 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
 
 function EditFolderModal({ open, folder, onClose, onSave }) {
   const [name, setName] = useState("");
-  const [color, setColor] = useState("violet");
   const [icon, setIcon] = useState("📁");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (folder) {
       setName(folder.name);
-      setColor(folder.color);
       setIcon(folder.icon);
     }
   }, [folder]);
@@ -815,7 +839,7 @@ function EditFolderModal({ open, folder, onClose, onSave }) {
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave({ name: name.trim(), color, icon });
+      await onSave({ name: name.trim(), color: folder.color, icon });
     } finally {
       setSaving(false);
     }
@@ -830,7 +854,6 @@ function EditFolderModal({ open, folder, onClose, onSave }) {
           className="w-full rounded-xl border border-violet-100 bg-violet-50/40 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-violet-300"
         />
         <IconPicker value={icon} onChange={setIcon} />
-        <ColorPicker value={color} onChange={setColor} />
         <button
           disabled={saving || !name.trim()}
           className="w-full rounded-xl bg-violet-500 text-white py-3 text-sm font-medium disabled:opacity-50"
@@ -844,14 +867,12 @@ function EditFolderModal({ open, folder, onClose, onSave }) {
 
 function AddLessonModal({ open, existingCount, onClose, onCreate }) {
   const [title, setTitle] = useState("");
-  const [color, setColor] = useState(autoColor(existingCount));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (open) {
       setTitle("");
-      setColor(autoColor(existingCount));
       setError("");
     }
   }, [open, existingCount]);
@@ -862,7 +883,7 @@ function AddLessonModal({ open, existingCount, onClose, onCreate }) {
     setSaving(true);
     setError("");
     try {
-      await onCreate(title.trim(), color);
+      await onCreate(title.trim());
     } catch {
       setError("Couldn't save the lesson. Try again.");
     } finally {
@@ -880,8 +901,6 @@ function AddLessonModal({ open, existingCount, onClose, onCreate }) {
           onChange={(e) => setTitle(e.target.value)}
           className="w-full rounded-xl border border-violet-100 bg-violet-50/40 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-violet-300"
         />
-        <p className="text-xs text-ink/40 -mt-2">Reading-page background tint</p>
-        <ColorPicker value={color} onChange={setColor} />
         {error && <p className="text-sm text-rose-500">{error}</p>}
         <button
           disabled={saving || !title.trim()}
@@ -896,13 +915,11 @@ function AddLessonModal({ open, existingCount, onClose, onCreate }) {
 
 function RenameLessonModal({ open, lesson, onClose, onSave }) {
   const [title, setTitle] = useState("");
-  const [color, setColor] = useState("dark");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (lesson) {
       setTitle(lesson.title);
-      setColor(lesson.color);
     }
   }, [lesson]);
 
@@ -912,7 +929,7 @@ function RenameLessonModal({ open, lesson, onClose, onSave }) {
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave(title.trim(), color);
+      await onSave(title.trim());
     } finally {
       setSaving(false);
     }
@@ -926,8 +943,6 @@ function RenameLessonModal({ open, lesson, onClose, onSave }) {
           onChange={(e) => setTitle(e.target.value)}
           className="w-full rounded-xl border border-violet-100 bg-violet-50/40 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-violet-300"
         />
-        <p className="text-xs text-ink/40 -mt-2">Reading-page background tint</p>
-        <ColorPicker value={color} onChange={setColor} />
         <button
           disabled={saving || !title.trim()}
           className="w-full rounded-xl bg-violet-500 text-white py-3 text-sm font-medium disabled:opacity-50"
