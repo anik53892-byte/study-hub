@@ -10,9 +10,17 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export default function LessonEditor({ content, onChange }) {
+  // Tracks the content we last pushed INTO the editor (either on load, or a
+  // moment ago when this exact prop arrived). Used to tell "the parent gave us
+  // a different lesson's text" apart from "the user is typing and onUpdate
+  // echoed back through the content prop" — those must be handled differently,
+  // or switching lessons/folders without a full remount can leave stale text
+  // from the previous one sitting in the editor.
+  const lastSyncedRef = useRef(content ?? "");
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -59,28 +67,26 @@ export default function LessonEditor({ content, onChange }) {
     },
 
     onUpdate: ({ editor }) => {
-      onChange(
-        editor.getHTML(),
-        editor.getText()
-      );
+      const html = editor.getHTML();
+      lastSyncedRef.current = html;
+      onChange(html, editor.getText());
     },
 
     immediatelyRender: false,
   });
 
+  // Whenever the `content` prop changes to something we didn't just write
+  // ourselves (i.e. a different lesson/folder was loaded, not our own typing
+  // echoing back), replace the editor's content — regardless of whether the
+  // editor currently looks "empty". This is what prevents one lesson's text
+  // from lingering when you switch to another without the component remounting.
   useEffect(() => {
-    if (
-      editor &&
-      content != null &&
-      editor.getHTML() !== content &&
-      editor.isEmpty
-    ) {
-      editor.commands.setContent(
-        content,
-        false
-      );
+    if (!editor) return;
+    const next = content ?? "";
+    if (next !== lastSyncedRef.current) {
+      lastSyncedRef.current = next;
+      editor.commands.setContent(next, false);
     }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, content]);
 
@@ -410,4 +416,5 @@ function Toolbar({ editor }) {
       </button>
     </div>
   );
-}
+          }
+          
