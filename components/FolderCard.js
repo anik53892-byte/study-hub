@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { colorFor } from "@/lib/colors";
 
 export default function FolderCard({ folder, onOpen, onMenu, count, compact = false }) {
   const [pressed, setPressed] = useState(false);
+  const c = colorFor(folder.color);
 
   return (
     <div
@@ -28,16 +30,29 @@ export default function FolderCard({ folder, onOpen, onMenu, count, compact = fa
             onMenu(folder);
           }}
           onPointerDown={(e) => e.stopPropagation()}
-          className={`absolute z-10 rounded-full bg-white/70 flex items-center justify-center text-violet-700 font-bold active:scale-90 transition-transform
-            ${compact ? "top-1 right-1 w-9 h-9 text-2xl" : "top-2 right-2 w-10 h-10 text-2xl"}`}
+          className={`absolute z-10 rounded-full bg-white/80 flex items-center justify-center text-violet-700 font-bold active:scale-90 transition-transform
+            before:content-[''] before:absolute before:-inset-2
+            ${compact ? "top-1 right-1 w-10 h-10 text-2xl" : "top-2 right-2 w-12 h-12 text-2xl"}`}
           aria-label="Folder options"
         >
           ⋮
         </button>
       )}
-      <div className={compact ? "text-lg" : "text-2xl"} style={{ filter: "drop-shadow(0 2px 6px rgba(124,58,237,0.25))" }}>
+
+      <div
+        className={`inline-flex items-center justify-center shrink-0 ${
+          compact ? "w-9 h-9 rounded-xl text-lg" : "w-11 h-11 rounded-2xl text-2xl"
+        }`}
+        style={{
+          background: c.tintable
+            ? `linear-gradient(155deg, rgba(${c.rgb},0.35), rgba(${c.rgb},0.14))`
+            : "rgba(63,51,85,0.08)",
+          boxShadow: c.tintable ? `0 4px 10px rgba(${c.rgb},0.28)` : "none",
+        }}
+      >
         {folder.icon}
       </div>
+
       <div>
         <div className={`text-[#3f3355] font-semibold leading-snug break-words ${compact ? "text-[11px]" : "text-sm mt-2.5"}`}>
           {folder.name}
