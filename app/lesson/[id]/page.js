@@ -86,6 +86,7 @@ export default function LessonPage() {
       );
     }
   }
+  
 // Owner opens an empty lesson → jump straight into the editor,
 // skip the "No content yet — Start writing" screen.
 useEffect(() => {
@@ -95,6 +96,7 @@ useEffect(() => {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [lesson?.id]);
+  
   /* =========================
      SAVE
      ========================= */
