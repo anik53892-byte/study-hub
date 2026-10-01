@@ -86,7 +86,15 @@ export default function LessonPage() {
       );
     }
   }
-
+// Owner opens an empty lesson → jump straight into the editor,
+// skip the "No content yet — Start writing" screen.
+useEffect(() => {
+  if (lesson && isOwner) {
+    const empty = !lesson.content || lesson.content.replace(/<[^>]*>/g, "").trim() === "";
+    if (empty) setEditing(true);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [lesson?.id]);
   /* =========================
      SAVE
      ========================= */
