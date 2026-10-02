@@ -371,7 +371,7 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
       setIcon(autoIcon(existingCount));
       setError("");
     }
-  }, [open, existingCount]);
+  }, [open]);
 
   async function submit(e) {
     e.preventDefault();
