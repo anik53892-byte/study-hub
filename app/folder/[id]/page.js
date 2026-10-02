@@ -783,7 +783,7 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
       setIcon(autoIcon(existingCount));
       setError("");
     }
-  }, [open, existingCount]);
+  }, [open]);
 
   async function submit(e) {
     e.preventDefault();
@@ -876,7 +876,7 @@ function AddLessonModal({ open, existingCount, onClose, onCreate }) {
       setTitle("");
       setError("");
     }
-  }, [open, existingCount]);
+  }, [open]);
 
   async function submit(e) {
     e.preventDefault();
