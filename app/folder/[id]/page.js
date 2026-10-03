@@ -378,45 +378,48 @@ export default function FolderPage() {
           <div>
             <h2 className="text-xs uppercase tracking-wide text-[#6d5d8c] mb-2 px-1">Lessons</h2>
             <ul className="space-y-2">
-              {lessons.map((lesson, idx) => (
-                <li
-                  key={lesson.id}
-                  className="relative overflow-hidden bg-white/40 backdrop-blur-md border border-white/55 rounded-2xl shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] px-4 py-3 flex items-center gap-2"
-                >
-                  <button
-                    onClick={() => router.push(`/lesson/${lesson.id}`)}
-                    className="flex-1 flex items-center gap-2 text-left font-semibold text-sm truncate text-[#3f3355]"
+              {lessons.map((lesson, idx) => {
+                const { icon: lessonIcon, rest: lessonText } = splitLeadingEmoji(lesson.title);
+                return (
+                  <li
+                    key={lesson.id}
+                    className="relative overflow-hidden bg-white/40 backdrop-blur-md border border-white/55 rounded-2xl shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] px-4 py-3 flex items-center gap-2"
                   >
-                    <span className="text-2xl shrink-0">📝</span>
-                    <span className="truncate">{lesson.title}</span>
-                  </button>
-                  {isOwner && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => moveLessonUpDown(idx, -1)}
-                        disabled={idx === 0}
-                        className="w-7 h-7 rounded-full bg-white/60 text-violet-700 disabled:opacity-30 text-xs"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        onClick={() => moveLessonUpDown(idx, 1)}
-                        disabled={idx === lessons.length - 1}
-                        className="w-7 h-7 rounded-full bg-white/60 text-violet-700 disabled:opacity-30 text-xs"
-                      >
-                        ↓
-                      </button>
-                      <button
-                        onClick={() => setMenuLesson(lesson)}
-                        className="w-7 h-7 rounded-full bg-white/60 text-violet-700 text-xs"
-                        aria-label="Lesson options"
-                      >
-                        ⋮
-                      </button>
-                    </div>
-                  )}
-                </li>
-              ))}
+                    <button
+                      onClick={() => router.push(`/lesson/${lesson.id}`)}
+                      className="flex-1 flex items-center gap-2 min-w-0 text-left font-semibold text-sm text-[#3f3355]"
+                    >
+                      {lessonIcon && <span className="text-2xl leading-none shrink-0">{lessonIcon}</span>}
+                      <span className="truncate">{lessonText}</span>
+                    </button>
+                    {isOwner && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => moveLessonUpDown(idx, -1)}
+                          disabled={idx === 0}
+                          className="w-7 h-7 rounded-full bg-white/60 text-violet-700 disabled:opacity-30 text-xs"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => moveLessonUpDown(idx, 1)}
+                          disabled={idx === lessons.length - 1}
+                          className="w-7 h-7 rounded-full bg-white/60 text-violet-700 disabled:opacity-30 text-xs"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          onClick={() => setMenuLesson(lesson)}
+                          className="w-7 h-7 rounded-full bg-white/60 text-violet-700 text-xs"
+                          aria-label="Lesson options"
+                        >
+                          ⋮
+                        </button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
             {/* Extra breathing room so the last lesson's ↑↓⋮ buttons aren't
                 covered by the floating action buttons at the bottom. */}
