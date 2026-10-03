@@ -52,6 +52,12 @@ const FOLDER_MESSAGES = [
 
 const AUTOSAVE_DELAY_MS = 1500;
 
+// টাইটেলের শুরুতে কিবোর্ড থেকে বসানো ইমোজি থাকলে সেটা আলাদা করে বের করে আনে।
+function splitLeadingEmoji(text) {
+  const match = (text || "").match(/^(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s*/u);
+  if (!match || !match[1]) return { icon: null, rest: text || "" };
+  return { icon: match[1], rest: text.slice(match[0].length) };
+}
 export default function FolderPage() {
   const { id } = useParams();
   const router = useRouter();
