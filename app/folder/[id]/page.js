@@ -379,9 +379,10 @@ export default function FolderPage() {
                 >
                   <button
                     onClick={() => router.push(`/lesson/${lesson.id}`)}
-                    className="flex-1 text-left font-semibold text-sm truncate text-[#3f3355]"
+                    className="flex-1 flex items-center gap-2 text-left font-semibold text-sm truncate text-[#3f3355]"
                   >
-                    📝 {lesson.title}
+                    <span className="text-2xl shrink-0">📝</span>
+                    <span className="truncate">{lesson.title}</span>
                   </button>
                   {isOwner && (
                     <div className="flex items-center gap-1 shrink-0">
