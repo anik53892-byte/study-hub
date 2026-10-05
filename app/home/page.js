@@ -9,6 +9,7 @@ import {
   createFolder,
   updateFolder,
   deleteFolder,
+  reorderFolders,
   duplicateFolder,
   copyFolderTo,
   moveFolder,
@@ -89,39 +90,21 @@ export default function HomePage() {
     router.refresh();
   }
 
-  // "Copy" leaves the original — pasting makes a new duplicate.
-  // "Cut" marks the folder to be MOVED — pasting relocates it (no duplicate)
-  // and clears the clipboard right after, like cut/paste elsewhere.
   function handleCopy(folder) {
-    setClipboard({ type: "folder", id: folder.id, name: folder.name, mode: "copy" });
+    setClipboard({ type: "folder", id: folder.id, name: folder.name });
     setMenuFolder(null);
   }
 
-  function handleCut(folder) {
-    setClipboard({ type: "folder", id: folder.id, name: folder.name, mode: "move" });
-    setMenuFolder(null);
-  }
-
-  // Home only holds folders (lessons must live inside a folder), so a copied/cut
-  // lesson can't be pasted at the top level.
+  // Home only holds folders (lessons must live inside a folder), so pasting a
+  // copied lesson at the top level isn't offered here.
   async function pasteHere() {
     if (!clip || clip.type !== "folder" || pasting) return;
     setPasting(true);
     setError("");
     try {
-      if (clip.mode === "move") {
-        const all = await fetchAllFolders();
-        if (invalidMoveTargets(all, clip.id).has(null)) {
-          throw new Error("Can't move a folder inside itself.");
-        }
-        await moveFolder(clip.id, null);
-        clearClipboard();
-        await load();
-      } else {
-        const copy = await copyFolderTo(clip.id, null);
-        setFolders((prev) => [...(prev || []), copy]);
-        setCounts((prev) => ({ ...prev, [copy.id]: 0 }));
-      }
+      const copy = await copyFolderTo(clip.id, null);
+      setFolders((prev) => [...(prev || []), copy]);
+      setCounts((prev) => ({ ...prev, [copy.id]: 0 }));
     } catch (e) {
       setError(e?.message || "Couldn't paste here.");
     } finally {
@@ -129,27 +112,19 @@ export default function HomePage() {
     }
   }
 
-  async function pasteInside(targetFolderId) {
-    if (!clip || clip.type !== "folder" || pasting) return;
-    setPasting(true);
-    setError("");
+  // Swaps a top-level folder with its neighbor and saves the new order.
+  async function moveFolderUpDown(index, direction) {
+    const swap = index + direction;
+    if (!folders || swap < 0 || swap >= folders.length) return;
+    const prev = folders;
+    const next = [...prev];
+    [next[index], next[swap]] = [next[swap], next[index]];
+    setFolders(next);
     try {
-      if (clip.mode === "move") {
-        const all = await fetchAllFolders();
-        if (invalidMoveTargets(all, clip.id).has(targetFolderId)) {
-          throw new Error("Can't move a folder inside itself.");
-        }
-        await moveFolder(clip.id, targetFolderId);
-        clearClipboard();
-        await load();
-      } else {
-        await copyFolderTo(clip.id, targetFolderId);
-      }
-    } catch (e) {
-      setError(e?.message || "Couldn't paste here.");
-    } finally {
-      setPasting(false);
-      setMenuFolder(null);
+      await reorderFolders(next.map((f) => f.id));
+    } catch {
+      setFolders(prev);
+      setError("Couldn't save the new order.");
     }
   }
 
@@ -187,14 +162,33 @@ export default function HomePage() {
 
         {folders && folders.length > 0 && (
           <div className="grid grid-cols-2 gap-3 px-1">
-            {folders.map((f) => (
-              <FolderCard
-                key={f.id}
-                folder={f}
-                count={counts[f.id]}
-                onOpen={(folder) => router.push(`/folder/${folder.id}`)}
-                onMenu={isOwner ? (folder) => setMenuFolder(folder) : null}
-              />
+            {folders.map((f, idx) => (
+              <div key={f.id} className="relative">
+                <FolderCard
+                  folder={f}
+                  count={counts[f.id]}
+                  onOpen={(folder) => router.push(`/folder/${folder.id}`)}
+                  onMenu={isOwner ? (folder) => setMenuFolder(folder) : null}
+                />
+                {isOwner && (
+                  <div className="flex justify-center gap-1 mt-1">
+                    <button
+                      onClick={() => moveFolderUpDown(idx, -1)}
+                      disabled={idx === 0}
+                      className="w-7 h-7 rounded-full bg-white/60 text-violet-700 disabled:opacity-30 text-xs"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => moveFolderUpDown(idx, 1)}
+                      disabled={idx === folders.length - 1}
+                      className="w-7 h-7 rounded-full bg-white/60 text-violet-700 disabled:opacity-30 text-xs"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -209,7 +203,7 @@ export default function HomePage() {
                 disabled={pasting}
                 className="text-violet-700 bg-white/90 backdrop-blur rounded-full pl-4 pr-3 py-2.5 text-xs font-medium active:scale-95 transition shadow-[0_0_0_1px_rgba(255,255,255,0.4)_inset,0_8px_20px_rgba(90,70,120,0.25)] disabled:opacity-50 max-w-[13rem] truncate"
               >
-                {pasting ? "Working…" : clip.mode === "move" ? `✂️ Move "${clip.name}" here` : `📥 Paste "${clip.name}"`}
+                {pasting ? "Pasting…" : `📥 Paste "${clip.name}"`}
               </button>
               <button
                 onClick={clearClipboard}
@@ -247,7 +241,6 @@ export default function HomePage() {
           <MenuButton label="📂 Open" onClick={() => router.push(`/folder/${menuFolder.id}`)} />
           <MenuButton label="✏️ Rename" onClick={() => setEditOpen(true)} />
           <MenuButton label="📋 Copy" onClick={() => handleCopy(menuFolder)} />
-          <MenuButton label="✂️ Cut" onClick={() => handleCut(menuFolder)} />
           <MenuButton
             label="📄 Duplicate"
             onClick={async () => {
@@ -260,8 +253,20 @@ export default function HomePage() {
           <MenuButton label="➡️ Move to…" onClick={() => setMoveOpen(true)} />
           {clip && clip.type === "folder" && (
             <MenuButton
-              label={clip.mode === "move" ? `✂️ Move "${clip.name}" inside` : `📥 Paste "${clip.name}" inside`}
-              onClick={() => pasteInside(menuFolder.id)}
+              label={`📥 Paste "${clip.name}" inside`}
+              onClick={async () => {
+                setPasting(true);
+                setError("");
+                try {
+                  const copy = await copyFolderTo(clip.id, menuFolder.id);
+                  if (menuFolder.id === null) setFolders((prev) => [...(prev || []), copy]);
+                } catch (e) {
+                  setError(e?.message || "Couldn't paste here.");
+                } finally {
+                  setPasting(false);
+                  setMenuFolder(null);
+                }
+              }}
             />
           )}
           <MenuButton
@@ -371,7 +376,7 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
       setIcon(autoIcon(existingCount));
       setError("");
     }
-  }, [open]);
+  }, [open, existingCount]);
 
   async function submit(e) {
     e.preventDefault();
@@ -379,6 +384,7 @@ function AddFolderModal({ open, existingCount, onClose, onCreate }) {
     setSaving(true);
     setError("");
     try {
+      // Color is assigned automatically behind the scenes — no picker shown to the user.
       await onCreate({ name: name.trim(), color: autoColor(existingCount), icon });
     } catch {
       setError("Couldn't save the folder. Try again.");
@@ -429,6 +435,7 @@ function EditFolderModal({ open, folder, onClose, onSave }) {
     e.preventDefault();
     setSaving(true);
     try {
+      // Color is left untouched — there's no picker here, so the existing color stays as-is.
       await onSave({ name: name.trim(), color: folder.color, icon });
     } finally {
       setSaving(false);
