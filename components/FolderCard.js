@@ -14,8 +14,8 @@ export default function FolderCard({ folder, onOpen, onMenu, count, progress, co
       onPointerDown={() => setPressed(true)}
       onPointerUp={() => setPressed(false)}
       onPointerLeave={() => setPressed(false)}
-      className={`relative overflow-hidden rounded-2xl border border-white/55
-        bg-white/40 backdrop-blur-md
+      className={`relative overflow-hidden rounded-2xl border border-white/40
+        bg-white/18 backdrop-blur-sm backdrop-saturate-150
         shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)]
         flex flex-col justify-between cursor-pointer select-none transition-transform
         ${compact ? "p-2.5 min-h-[5.5rem] rounded-[14px]" : "p-4 min-h-[6.5rem]"}
