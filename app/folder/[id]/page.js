@@ -10,6 +10,7 @@ import {
   fetchLessons,
   fetchAncestors,
   fetchLessonProgress,
+  toggleLessonReadPublic,
   createFolder,
   updateFolder,
   deleteFolder,
@@ -234,7 +235,7 @@ export default function FolderPage() {
   // পড়া হয়েছে কিনা টগল করে — এবং সাথে সাথে ফোল্ডার-progress badge-গুলোও নতুন করে হিসাব করে।
   async function toggleLessonRead(lesson) {
     try {
-      const updated = await updateLessonMeta(lesson.id, { is_read: !lesson.is_read });
+      const updated = await toggleLessonReadPublic(lesson.id);
       setLessons((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
       const p = await fetchLessonProgress();
       setProgress(p);
@@ -428,17 +429,17 @@ export default function FolderPage() {
                       {lessonIcon && <span className="text-2xl leading-none shrink-0">{lessonIcon}</span>}
                       <span className={`truncate ${lesson.is_read ? "opacity-60" : ""}`}>{lessonText}</span>
                     </button>
+                    <button
+                      onClick={() => toggleLessonRead(lesson)}
+                      aria-label={lesson.is_read ? "Mark as unread" : "Mark as read"}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 active:scale-90 transition ${
+                        lesson.is_read ? "bg-emerald-500 text-white" : "bg-white/60 text-violet-700"
+                      }`}
+                    >
+                      ✅
+                    </button>
                     {isOwner && (
                       <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => toggleLessonRead(lesson)}
-                          aria-label={lesson.is_read ? "Mark as unread" : "Mark as read"}
-                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs active:scale-90 transition ${
-                            lesson.is_read ? "bg-emerald-500 text-white" : "bg-white/60 text-violet-700"
-                          }`}
-                        >
-                          ✅
-                        </button>
                         <button
                           onClick={() => moveLessonUpDown(idx, -1)}
                           disabled={idx === 0}
