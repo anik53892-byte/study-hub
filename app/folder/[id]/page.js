@@ -880,11 +880,14 @@ function AddLessonModal({ open, existingCount, onClose, onCreate }) {
   const [title, setTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (open) {
       setTitle("");
       setError("");
+      const t = setTimeout(() => inputRef.current?.focus(), 150);
+      return () => clearTimeout(t);
     }
   }, [open]);
 
@@ -906,10 +909,13 @@ function AddLessonModal({ open, existingCount, onClose, onCreate }) {
     <Modal open={open} onClose={onClose} title="New lesson">
       <form onSubmit={submit} className="space-y-4">
         <input
-          autoFocus
+          ref={inputRef}
           placeholder="Lesson title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck="false"
           className="w-full rounded-xl border border-violet-100 bg-violet-50/40 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-violet-300"
         />
         {error && <p className="text-sm text-rose-500">{error}</p>}
