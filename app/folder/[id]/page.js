@@ -320,11 +320,23 @@ export default function FolderPage() {
         {folder?.parent_id &&
           content !== null &&
           (isOwner ? (
-            (showEditor || hasNotes) && (
+            showEditor && (
               <div className="mb-5" ref={editorRef}>
                 <div className="flex items-center justify-between px-1 mb-2">
                   <h2 className="text-xs uppercase tracking-wide text-[#6d5d8c]">Notes</h2>
-                  <SaveStatus status={saveStatus} />
+                  <div className="flex items-center gap-2">
+                    <SaveStatus status={saveStatus} />
+                    <button
+                      onClick={async () => {
+                        await flushSave();
+                        setShowEditor(false);
+                      }}
+                      aria-label="Close notes editor"
+                      className="w-7 h-7 rounded-full bg-white/60 text-violet-700 text-sm flex items-center justify-center active:scale-90 transition"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
                 <LessonEditor key={id} content={content} onChange={handleEditorChange} />
               </div>
