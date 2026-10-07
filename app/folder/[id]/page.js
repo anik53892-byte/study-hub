@@ -9,6 +9,7 @@ import {
   fetchFolders,
   fetchLessons,
   fetchAncestors,
+  fetchLessonProgress,
   createFolder,
   updateFolder,
   deleteFolder,
@@ -54,7 +55,7 @@ const AUTOSAVE_DELAY_MS = 1500;
 
 // টাইটেলের শুরুতে কিবোর্ড থেকে বসানো ইমোজি থাকলে সেটা আলাদা করে বের করে আনে।
 function splitLeadingEmoji(text) {
-  const match = (text || "").match(/^(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s*/u);
+  const match = (text || "").match(/^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*)\s*/u);
   if (!match || !match[1]) return { icon: null, rest: text || "" };
   return { icon: match[1], rest: text.slice(match[0].length) };
 }
@@ -69,6 +70,7 @@ export default function FolderPage() {
   const [ancestors, setAncestors] = useState([]);
   const [subfolders, setSubfolders] = useState(null);
   const [lessons, setLessons] = useState(null);
+  const [progress, setProgress] = useState({});
   const [error, setError] = useState("");
   const [pasting, setPasting] = useState(false);
 
@@ -186,6 +188,8 @@ export default function FolderPage() {
       setSubfolders(subs);
       setLessons(less);
       setAncestors(anc);
+      const p = await fetchLessonProgress();
+      setProgress(p);
     } catch {
       setError("Couldn't load this folder. Check your connection.");
     }
@@ -224,6 +228,18 @@ export default function FolderPage() {
     } catch {
       setLessons(prev);
       setError("Couldn't save the new order.");
+    }
+  }
+
+  // পড়া হয়েছে কিনা টগল করে — এবং সাথে সাথে ফোল্ডার-progress badge-গুলোও নতুন করে হিসাব করে।
+  async function toggleLessonRead(lesson) {
+    try {
+      const updated = await updateLessonMeta(lesson.id, { is_read: !lesson.is_read });
+      setLessons((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
+      const p = await fetchLessonProgress();
+      setProgress(p);
+    } catch {
+      setError("Couldn't update read status.");
     }
   }
 
@@ -364,6 +380,7 @@ export default function FolderPage() {
                   <FolderCard
                     folder={sf}
                     compact
+                    progress={progress[sf.id]}
                     onOpen={(f) => router.push(`/folder/${f.id}`)}
                     onMenu={isOwner ? (f) => setMenuFolder(f) : null}
                   />
@@ -400,17 +417,28 @@ export default function FolderPage() {
                 return (
                   <li
                     key={lesson.id}
-                    className="relative overflow-hidden bg-white/40 backdrop-blur-md border border-white/55 rounded-2xl shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] px-4 py-3 flex items-center gap-2"
+                    className={`relative overflow-hidden bg-white/40 backdrop-blur-md border rounded-2xl shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] px-4 py-3 flex items-center gap-2 ${
+                      lesson.is_read ? "border-emerald-400/60" : "border-white/55"
+                    }`}
                   >
                     <button
                       onClick={() => router.push(`/lesson/${lesson.id}`)}
                       className="flex-1 flex items-center gap-2 min-w-0 text-left font-semibold text-sm text-[#3f3355]"
                     >
                       {lessonIcon && <span className="text-2xl leading-none shrink-0">{lessonIcon}</span>}
-                      <span className="truncate">{lessonText}</span>
+                      <span className={`truncate ${lesson.is_read ? "opacity-60" : ""}`}>{lessonText}</span>
                     </button>
                     {isOwner && (
                       <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => toggleLessonRead(lesson)}
+                          aria-label={lesson.is_read ? "Mark as unread" : "Mark as read"}
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs active:scale-90 transition ${
+                            lesson.is_read ? "bg-emerald-500 text-white" : "bg-white/60 text-violet-700"
+                          }`}
+                        >
+                          ✅
+                        </button>
                         <button
                           onClick={() => moveLessonUpDown(idx, -1)}
                           disabled={idx === 0}
@@ -930,6 +958,13 @@ function AddLessonModal({ open, existingCount, onClose, onCreate }) {
           placeholder="Lesson title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submit(e);
+            }
+          }}
+          enterKeyHint="done"
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck="false"
