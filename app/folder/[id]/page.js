@@ -417,8 +417,8 @@ export default function FolderPage() {
                 return (
                   <li
                     key={lesson.id}
-                    className={`relative overflow-hidden bg-white/40 backdrop-blur-md border rounded-2xl shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] px-4 py-3 flex items-center gap-2 ${
-                      lesson.is_read ? "border-emerald-400/60" : "border-white/55"
+                    className={`relative overflow-hidden bg-white/18 backdrop-blur-sm backdrop-saturate-150 border rounded-2xl shadow-[0_8px_20px_rgba(90,70,120,0.14),inset_0_1px_0_rgba(255,255,255,0.5)] px-4 py-3 flex items-center gap-2 ${
+                      lesson.is_read ? "border-emerald-400/60" : "border-white/40"
                     }`}
                   >
                     <button
