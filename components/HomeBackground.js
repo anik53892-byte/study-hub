@@ -157,8 +157,8 @@ export default function HomeBackground() {
         .gb-trail {
           fill: none;
 
-          /* Slightly clearer line */
-          stroke-width: 1.15;
+          /* আরো স্পষ্ট দেখানোর জন্য একটু পুরু */
+          stroke-width: 1.7;
 
           stroke-linecap: round;
 
@@ -167,19 +167,19 @@ export default function HomeBackground() {
         }
 
 
-        /* Main Blue-Purple Orbit */
+        /* Main Premium Purple Orbit */
 
         .gb-trail-1 {
-          stroke: rgba(75, 105, 190, 0.82);
+          stroke: rgba(124, 58, 237, 0.95);
 
           animation-delay: 0s;
         }
 
 
-        /* Lighter Blue Orbit */
+        /* Lighter Violet Orbit */
 
         .gb-trail-2 {
-          stroke: rgba(105, 145, 220, 0.78);
+          stroke: rgba(167, 139, 250, 0.9);
 
           animation-delay: 1.2s;
         }
@@ -188,7 +188,7 @@ export default function HomeBackground() {
         /* Deep Purple Orbit */
 
         .gb-trail-3 {
-          stroke: rgba(65, 80, 165, 0.72);
+          stroke: rgba(91, 33, 182, 0.88);
 
           animation-delay: 2.4s;
         }
@@ -200,7 +200,7 @@ export default function HomeBackground() {
 
         .gb-cluster-tl {
           animation:
-            gbSpin 130s linear infinite;
+            gbSpin 70s linear infinite;
 
           transform-origin: center;
         }
@@ -208,7 +208,7 @@ export default function HomeBackground() {
 
         .gb-cluster-br {
           animation:
-            gbSpin 150s linear infinite reverse;
+            gbSpin 85s linear infinite reverse;
 
           transform-origin: center;
         }
@@ -219,7 +219,11 @@ export default function HomeBackground() {
         ============================== */
 
         .gb-star {
-          fill: rgba(255, 255, 255, 0.9);
+          fill: rgba(255, 255, 255, 1);
+
+          /* সাদা ফোঁটা দুটো আরো স্পষ্ট করার জন্য হালকা glow */
+          filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.95))
+            drop-shadow(0 0 6px rgba(167, 139, 250, 0.7));
 
           animation:
             gbTwinkle 4.5s ease-in-out infinite;
@@ -239,7 +243,7 @@ export default function HomeBackground() {
 
           0%,
           100% {
-            stroke-opacity: 0.70;
+            stroke-opacity: 0.85;
           }
 
           50% {
@@ -272,7 +276,7 @@ export default function HomeBackground() {
 
           0%,
           100% {
-            opacity: 0.3;
+            opacity: 0.55;
           }
 
           50% {
@@ -288,7 +292,7 @@ export default function HomeBackground() {
         @media (max-width: 640px) {
 
           .gb-trail {
-            stroke-width: 1.2;
+            stroke-width: 1.8;
           }
         }
 
