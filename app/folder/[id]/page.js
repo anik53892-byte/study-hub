@@ -123,14 +123,19 @@ export default function FolderPage() {
     saveTimer.current = setTimeout(flushSave, AUTOSAVE_DELAY_MS);
   }
 
-  useEffect(() => {
+ useEffect(() => {
     let cancelled = false;
     setContent(null);
     setShowEditor(false);
     setSaveStatus("idle");
     fetchFolder(id)
       .then((f) => {
-        if (!cancelled) setContent(f.content ?? "");
+        if (!cancelled) {
+          const c = f.content ?? "";
+          setContent(c);
+          // আগে থেকে কোনো নোট লেখা থাকলে সেটা auto দেখাবে, না থাকলে বন্ধ থাকবে।
+          if (c.replace(/<[^>]*>/g, "").trim()) setShowEditor(true);
+        }
       })
       .catch(() => {});
     return () => {
