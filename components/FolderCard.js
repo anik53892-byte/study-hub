@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { colorFor } from "@/lib/colors";
 
-export default function FolderCard({ folder, onOpen, onMenu, count, compact = false }) {
+export default function FolderCard({ folder, onOpen, onMenu, count, progress, compact = false }) {
   const [pressed, setPressed] = useState(false);
   const c = colorFor(folder.color);
 
@@ -57,14 +57,29 @@ export default function FolderCard({ folder, onOpen, onMenu, count, compact = fa
         <div className={`text-[#3f3355] font-semibold leading-snug break-words ${compact ? "text-[11px]" : "text-sm mt-2.5"}`}>
           {folder.name}
         </div>
-        {typeof count === "number" && (
-          <div
-            className={`inline-flex w-fit items-center gap-1 font-medium bg-violet-500/12 border border-violet-500/20 text-violet-700 rounded-full
-              ${compact ? "text-[8.5px] px-1.5 py-0.5 mt-1" : "text-[11px] px-2 py-0.5 mt-1.5"}`}
-          >
-            {count} {count === 1 ? "item" : "items"}
-          </div>
-        )}
+
+        <div className={`flex flex-wrap items-center gap-1 ${compact ? "mt-1" : "mt-1.5"}`}>
+          {typeof count === "number" && (
+            <div
+              className={`inline-flex w-fit items-center gap-1 font-medium bg-violet-500/12 border border-violet-500/20 text-violet-700 rounded-full
+                ${compact ? "text-[8.5px] px-1.5 py-0.5" : "text-[11px] px-2 py-0.5"}`}
+            >
+              {count} {count === 1 ? "item" : "items"}
+            </div>
+          )}
+
+          {progress && progress.total > 0 && (
+            <div
+              className={`inline-flex w-fit items-center gap-1 font-medium rounded-full ${
+                progress.read >= progress.total
+                  ? "bg-emerald-500/14 border border-emerald-500/25 text-emerald-700"
+                  : "bg-amber-500/14 border border-amber-500/25 text-amber-700"
+              } ${compact ? "text-[8.5px] px-1.5 py-0.5" : "text-[11px] px-2 py-0.5"}`}
+            >
+              ✅ {progress.read}/{progress.total}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
