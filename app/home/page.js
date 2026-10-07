@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   fetchFolders,
   fetchFolderItemCounts,
+  fetchLessonProgress,
   createFolder,
   updateFolder,
   deleteFolder,
@@ -46,6 +47,7 @@ export default function HomePage() {
 
   const [folders, setFolders] = useState(null);
   const [counts, setCounts] = useState({});
+  const [progress, setProgress] = useState({});
   const [msgIndex, setMsgIndex] = useState(0);
   const [quoteVisible, setQuoteVisible] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -80,6 +82,8 @@ export default function HomePage() {
       setFolders(data);
       const c = await fetchFolderItemCounts(data.map((f) => f.id));
       setCounts(c);
+      const p = await fetchLessonProgress();
+      setProgress(p);
     } catch {
       setError("Couldn't load your folders. Check your connection.");
     }
@@ -167,6 +171,7 @@ export default function HomePage() {
                 <FolderCard
                   folder={f}
                   count={counts[f.id]}
+                  progress={progress[f.id]}
                   onOpen={(folder) => router.push(`/folder/${folder.id}`)}
                   onMenu={isOwner ? (folder) => setMenuFolder(folder) : null}
                 />
