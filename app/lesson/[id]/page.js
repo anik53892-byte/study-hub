@@ -338,7 +338,7 @@ useEffect(() => {
             />
 
             <button
-              onClick={handleManualSave}
+              onClick={exitEditing}
               className="mt-4 w-full rounded-xl py-3 text-sm font-medium"
               style={{
                 background: ACCENT,
