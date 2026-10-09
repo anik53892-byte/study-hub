@@ -47,6 +47,21 @@ body {
   line-height: 1.4;
 }
 
+/* Third-level Heading (Markdown ### এর জন্য — আগে H1/H2 ছাড়া কিছু ছিল না) */
+.lesson-content h3,
+.lesson-content h4,
+.lesson-content h5,
+.lesson-content h6 {
+  font-size: 1.05rem;
+  font-weight: 700;
+
+  margin: 1em 0 0.4em;
+
+  color: #ffffff;
+
+  line-height: 1.4;
+}
+
 /* Paragraph */
 .lesson-content p {
   margin: 0.85em 0;
@@ -164,6 +179,38 @@ body {
 /* Underline */
 .lesson-content u {
   color: #ffffff;
+}
+
+/* =========================================================
+   INLINE CODE / CODE BLOCK (যেমন রাসায়নিক সংকেত বা টার্ম হাইলাইট)
+   ========================================================= */
+
+.lesson-content code {
+  background: #1b1b20;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: #c9bfff;
+}
+
+.lesson-content pre {
+  background: #1b1b20;
+  padding: 0.85em 1em;
+  border-radius: 10px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.lesson-content pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* Horizontal divider */
+.lesson-content hr {
+  border: none;
+  border-top: 1px solid #242428;
+  margin: 1.5em 0;
 }
 
 /* =========================================================
