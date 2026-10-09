@@ -69,7 +69,12 @@ export default function LessonEditor({ content, onChange }) {
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
       lastSyncedRef.current = html;
-      onChange(html, editor.getText());
+      // blockSeparator: "\n" — প্রতিটা প্যারাগ্রাফের মাঝে একটাই নতুন লাইন
+      // রাখে (দুটো না), যাতে ChatGPT থেকে পেস্ট করা Markdown টেবিলের
+      // সারিগুলো (যেগুলো Tiptap আলাদা প্যারাগ্রাফ হিসেবে রাখে) একসাথে
+      // লেগে থাকে — নাহলে প্রতিটা সারির মাঝে ফাঁকা লাইন চলে এসে
+      // Markdown টেবিল হিসেবে চেনা যেতো না।
+      onChange(html, editor.getText({ blockSeparator: "\n" }));
     },
 
     immediatelyRender: false,
