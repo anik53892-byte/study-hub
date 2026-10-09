@@ -12,6 +12,18 @@ import Breadcrumbs from "@/components/Breadcrumbs";
 import SaveStatus from "@/components/SaveStatus";
 import SaveToast from "@/components/SaveToast";
 import { ListSkeleton } from "@/components/EmptyState";
+import LessonMarkdown from "@/components/LessonMarkdown";
+
+// পুরনো পাঠের কোনো কারণে content_text ফাঁকা থাকলে (খুবই বিরল), HTML থেকে
+// প্লেইন টেক্সট বের করে আনার শেষ উপায় — যেন সেই পাঠও অন্তত দেখা যায়।
+function stripHtmlFallback(html) {
+  return (html || "")
+    .replace(/<\/(p|div|h[1-6]|li|tr|blockquote)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+}
 
 const LessonEditor = dynamic(
   () => import("@/components/LessonEditor"),
@@ -253,6 +265,14 @@ useEffect(() => {
     },
   ];
 
+  // Markdown রেন্ডার করার জন্য ব্যবহৃত টেক্সট — content_text থাকলে সেটাই
+  // (এটাই সাধারণত ChatGPT থেকে পেস্ট করা আসল Markdown লেখা ধরে রাখে)।
+  const displayText =
+    lesson.content_text && lesson.content_text.trim()
+      ? lesson.content_text
+      : stripHtmlFallback(lesson.content);
+  const hasContent = !!displayText.trim();
+
   /* =========================
      MAIN
      ========================= */
@@ -348,7 +368,7 @@ useEffect(() => {
               Save now
             </button>
           </>
-        ) : lesson.content ? (
+        ) : hasContent ? (
           <div
             key={lesson.id}
             className="lesson-content rounded-2xl p-5 sm:p-6"
@@ -365,10 +385,9 @@ useEffect(() => {
               boxShadow:
                 "0 8px 30px rgba(0, 0, 0, 0.35)",
             }}
-            dangerouslySetInnerHTML={{
-              __html: lesson.content,
-            }}
-          />
+          >
+            <LessonMarkdown text={displayText} />
+          </div>
         ) : (
           <div
             className="text-center py-16"
