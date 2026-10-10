@@ -39,6 +39,15 @@ function getTurndownService() {
       codeBlockStyle: "fenced",
     });
     turndownService.use(turndownGfm);
+
+    // turndown ডিফল্টভাবে "#", "**", "_" ইত্যাদি চিহ্ন plain text-এ পেলে
+    // সেগুলোর আগে "\" বসিয়ে escape করে দেয় (যেমন "### কথা" → "\### কথা"),
+    // যাতে সাধারণ ডকুমেন্টে ভুলবশত এগুলো Markdown হিসেবে পার্স না হয়।
+    // কিন্তু আমাদের দরকার ঠিক উল্টোটা — ChatGPT থেকে পেস্ট করা plain
+    // টেক্সটে থাকা "#"/"**" আসলে intentional Markdown, ওগুলো escape না
+    // হয়ে বরং আসল heading/bold হিসেবেই পার্স হওয়া দরকার। তাই escaping
+    // পুরোপুরি বন্ধ করে দেওয়া হলো।
+    turndownService.escape = (str) => str;
   }
   return turndownService;
 }
