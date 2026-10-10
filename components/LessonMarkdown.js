@@ -30,6 +30,31 @@ import { gfm as turndownGfm } from "turndown-plugin-gfm";
  * (rich copy এবং plain text copy) সঠিকভাবে দেখা যায়।
  */
 
+// বাংলা সংখ্যা (১. ২. ৩. ...) ও বাংলা অক্ষরভিত্তিক MCQ অপশন (ক) খ) গ) ...)
+// Markdown-এর নিজস্ব কোনো নিয়মে লিস্ট হিসেবে ধরা পড়ে না — Markdown শুধু
+// ইংরেজি সংখ্যা (1. 2. 3.)-কে list marker হিসেবে চেনে। এছাড়া অনেক সময়
+// পুরো লেখাটা (১ থেকে ১২ পর্যন্ত) মূল উৎসেই একটামাত্র প্যারাগ্রাফ/লাইনে
+// জোড়া লাগানো থাকে। এই ফাংশন সেই মার্কারগুলো খুঁজে বের করে প্রতিটার
+// ঠিক আগে একটা নতুন লাইন বসিয়ে দেয়, যাতে প্রতিটা আইটেম নিজের লাইনে
+// আলাদাভাবে দেখায়। দশমিক সংখ্যা (যেমন "৩৭.৫ ডিগ্রি") ভুলভাবে ভেঙে না
+// যায় তাই শুধু তখনই মার্কার ধরা হয় যখন বিন্দু/বন্ধনীর ঠিক পরে স্পেস আছে
+// (দশমিকে বিন্দুর পরপরই আরেকটা অঙ্ক থাকে, স্পেস থাকে না)।
+function breakInlineListMarkers(text) {
+  const bengaliNumberMarker = "[০-৯]{1,3}\\.";
+  const bengaliOptionMarker = "[\\u0995-\\u09B9\\u09DC\\u09DD\\u09DF]\\)";
+  const markerPattern = new RegExp(
+    `(${bengaliNumberMarker}|${bengaliOptionMarker})(?=\\s)`,
+    "g"
+  );
+
+  return text.replace(markerPattern, (match, _g, offset, full) => {
+    const before = full.slice(0, offset);
+    // শুরুতে বা আগে থেকেই নতুন লাইনে থাকলে আর নতুন করে ভাঙার দরকার নেই।
+    if (before === "" || /\n[ \t]*$/.test(before)) return match;
+    return "\n" + match;
+  });
+}
+
 let turndownService = null;
 function getTurndownService() {
   if (!turndownService) {
@@ -78,12 +103,14 @@ function getTurndownService() {
 export default function LessonMarkdown({ html }) {
   const markdown = useMemo(() => {
     if (!html || !html.replace(/<[^>]*>/g, "").trim()) return "";
+    let md;
     try {
-      return getTurndownService().turndown(html);
+      md = getTurndownService().turndown(html);
     } catch {
       // turndown কোনো কারণে ব্যর্থ হলে অন্তত সাধারণ লেখাটা দেখাই, একদম খালি না রেখে।
-      return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+      md = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
     }
+    return breakInlineListMarkers(md);
   }, [html]);
 
   if (!markdown.trim()) return null;
