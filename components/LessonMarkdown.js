@@ -41,7 +41,10 @@ import { gfm as turndownGfm } from "turndown-plugin-gfm";
 // (দশমিকে বিন্দুর পরপরই আরেকটা অঙ্ক থাকে, স্পেস থাকে না)।
 function breakInlineListMarkers(text) {
   const bengaliNumberMarker = "[০-৯]{1,3}\\.";
-  const bengaliOptionMarker = "[\\u0995-\\u09B9\\u09DC\\u09DD\\u09DF]\\)";
+  // MCQ অপশন কখনো বন্ধনী দিয়ে লেখা হয় (ক), খ)), কখনো বিন্দু দিয়ে (ক., খ.) —
+  // দুটোই ধরা হচ্ছে।
+  const bengaliOptionMarker =
+    "[\\u0995-\\u09B9\\u09DC\\u09DD\\u09DF][.)]";
   const markerPattern = new RegExp(
     `(${bengaliNumberMarker}|${bengaliOptionMarker})(?=\\s)`,
     "g"
