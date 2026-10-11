@@ -63,62 +63,86 @@ function breakInlineListMarkers(text) {
 
 // কখনো কখনো ChatGPT থেকে টেবিল কপি করার সময় আসল (রেন্ডার করা) টেবিলের
 // বদলে তার HTML সোর্স কোডটাই (<table>...</table>) প্লেইন টেক্সট হিসেবে
-// পেস্ট হয়ে যায়। তখন Tiptap সেটাকে প্রতি লাইনে একটা করে আলাদা <p>-তে
-// সাধারণ টেক্সট হিসেবে রেখে দেয় (আসল <table> element হিসেবে না), আর
-// পর্দায়ও সেটা হুবহু ট্যাগ আকারেই ("<table...>", "<colgroup>"...) দেখা
-// যায় — editor-এও আর reader mode-এও। এই ফাংশন সেই প্যাটার্নটা (একটা
-// প্যারাগ্রাফ "<table" দিয়ে শুরু, পরের কয়েকটা প্যারাগ্রাফ মিলিয়ে
-// "</table>" দিয়ে শেষ) খুঁজে বের করে, পুরো টেক্সটটুকু আবার আসল HTML
-// হিসেবে পার্স করে একটা সত্যিকারের <table> element দিয়ে বদলে দেয় —
-// যাতে তারপর স্বাভাবিক টেবিলের মতোই রেন্ডার হয়। কিছু না মিললে মূল
-// HTML-টা অপরিবর্তিত থেকে যায়, কোনো ঝুঁকি নেই।
+// পেস্ট হয়ে যায়। এই টেক্সটটুকু অন্য সাধারণ বাক্যের সাথে একই প্যারাগ্রাফে
+// বা একাধিক প্যারাগ্রাফ জুড়ে যেভাবেই মেশানো থাকুক না কেন (শুরুতে/মাঝে/
+// একাধিক লাইনে ভাগ হয়ে), এই ফাংশন পুরো content-এর টেক্সট একসাথে পড়ে
+// "<table" থেকে মিলে যাওয়া "</table>" পর্যন্ত অংশটা ঠিক কোথায় আছে বের
+// করে (DOM Range ব্যবহার করে, যা paragraph-এর সীমানা পার হয়েও কাজ করে),
+// সেই নির্দিষ্ট অংশটুকু মুছে তার জায়গায় আসল HTML হিসেবে পার্স করা একটা
+// সত্যিকারের <table> element বসিয়ে দেয় — বাকি লেখা (আগে/পরে) অক্ষত
+// থাকে। কিছু না মিললে বা কোনো কারণে ব্যর্থ হলে মূল HTML-টাই অপরিবর্তিত
+// ফেরত যায়, কোনো ঝুঁকি নেই।
+function locateTextOffset(root, targetIndex) {
+  const ownerDoc = root.ownerDocument || document;
+  const walker = ownerDoc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let consumed = 0;
+  let node = walker.nextNode();
+  while (node) {
+    const len = node.nodeValue.length;
+    if (consumed + len >= targetIndex) {
+      return { node, offset: targetIndex - consumed };
+    }
+    consumed += len;
+    node = walker.nextNode();
+  }
+  return null;
+}
+
 function recoverEscapedHtmlTables(html) {
-  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
+  if (
+    typeof window === "undefined" ||
+    typeof DOMParser === "undefined" ||
+    typeof document === "undefined" ||
+    typeof document.createRange !== "function"
+  ) {
     return html;
   }
   if (!html || !/&lt;table[\s>]/i.test(html)) return html;
 
   try {
     const doc = new DOMParser().parseFromString(html, "text/html");
-    const nodes = Array.from(doc.body.childNodes);
 
-    let i = 0;
-    while (i < nodes.length) {
-      const node = nodes[i];
-      const text = node.nodeType === 1 ? node.textContent : "";
+    // একই content-এ একাধিক এমন টেবিল থাকতে পারে বলে লুপে চালানো হচ্ছে,
+    // তবে অসীম লুপ এড়াতে একটা সীমা রাখা হলো।
+    for (let guard = 0; guard < 20; guard++) {
+      const fullText = doc.body.textContent || "";
+      const startMatch = /<table[\s>]/i.exec(fullText);
+      if (!startMatch) break;
 
-      if (node.nodeType === 1 && /^\s*<table[\s>]/i.test(text)) {
-        let combined = "";
-        let endIndex = -1;
+      const startIdx = startMatch.index;
+      const tailMatch = /<\/table\s*>/i.exec(fullText.slice(startIdx));
+      if (!tailMatch) break;
+      const endIdx = startIdx + tailMatch.index + tailMatch[0].length;
 
-        for (let j = i; j < nodes.length && j < i + 500; j++) {
-          if (nodes[j].nodeType !== 1) break;
-          combined += nodes[j].textContent;
-          if (/<\/table\s*>/i.test(combined)) {
-            endIndex = j;
-            break;
-          }
-        }
+      const tableSourceText = fullText.slice(startIdx, endIdx);
+      const tableDoc = new DOMParser().parseFromString(tableSourceText, "text/html");
+      const parsedTable = tableDoc.querySelector("table");
+      if (!parsedTable) break;
 
-        if (endIndex !== -1) {
-          const tableDoc = new DOMParser().parseFromString(combined, "text/html");
-          const table = tableDoc.querySelector("table");
-          if (table) {
-            const imported = doc.importNode(table, true);
-            node.parentNode.insertBefore(imported, node);
-            for (let k = i; k <= endIndex; k++) {
-              if (nodes[k] && nodes[k].parentNode) {
-                nodes[k].parentNode.removeChild(nodes[k]);
-              }
-            }
-            i = endIndex + 1;
-            continue;
-          }
-        }
+      const startPos = locateTextOffset(doc.body, startIdx);
+      const endPos = locateTextOffset(doc.body, endIdx);
+      if (!startPos || !endPos) break;
+
+      const range = doc.createRange();
+      range.setStart(startPos.node, startPos.offset);
+      range.setEnd(endPos.node, endPos.offset);
+      range.deleteContents();
+
+      const insertedTable = doc.importNode(parsedTable, true);
+      range.insertNode(insertedTable);
+
+      // <table>, <p>-এর ভেতরে বৈধ নয় — দরকার হলে বের করে বাইরে বসানো হচ্ছে।
+      if (insertedTable.parentNode && insertedTable.parentNode.nodeName === "P") {
+        const p = insertedTable.parentNode;
+        p.parentNode.insertBefore(insertedTable, p);
+        if (!p.textContent.trim()) p.remove();
       }
-
-      i++;
     }
+
+    // ফাঁকা হয়ে যাওয়া <p></p> থাকলে পরিষ্কার করা।
+    doc.body.querySelectorAll("p").forEach((p) => {
+      if (!p.textContent.trim() && p.children.length === 0) p.remove();
+    });
 
     return doc.body.innerHTML;
   } catch {
