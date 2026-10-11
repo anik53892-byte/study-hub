@@ -1,4 +1,5 @@
 import "./globals.css";
+import SWUpdateReload from "@/components/SWUpdateReload";
 
 export const metadata = {
   title: "Study Hub",
@@ -28,7 +29,10 @@ export default function RootLayout({ children }) {
         />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body className="bg-paper text-ink font-sans antialiased">{children}</body>
+      <body className="bg-paper text-ink font-sans antialiased">
+        <SWUpdateReload />
+        {children}
+      </body>
     </html>
   );
 }
