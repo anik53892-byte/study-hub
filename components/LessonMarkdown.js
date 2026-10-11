@@ -15,27 +15,55 @@ import TurndownService from "turndown";
 import { gfm as turndownGfm } from "turndown-plugin-gfm";
 
 /* =========================================================
-   BANGLA LIST MARKERS
+   INLINE NUMBERED LISTS
+   একই লাইনে থাকা একাধিক বাংলা/ইংরেজি নম্বরযুক্ত পয়েন্ট
+   আলাদা করা হবে।
    ========================================================= */
 
 function breakInlineListMarkers(text) {
-  const bengaliNumberMarker = "[০-৯]{1,3}\\.";
-  const bengaliOptionMarker = "[\\u0995-\\u09B9\\u09DC\\u09DD\\u09DF][.)]";
+  if (typeof text !== "string" || !text) {
+    return text;
+  }
 
-  const markerPattern = new RegExp(
-    `(${bengaliNumberMarker}|${bengaliOptionMarker})(?=\\s)`,
-    "g"
-  );
+  // 1. / 2. / ১২. ইত্যাদি নম্বরযুক্ত তালিকার চিহ্ন।
+  // চিহ্নের পরে অন্তত একটি স্পেস বা ট্যাব থাকতে হবে।
+  const numberMarker = /(?:[০-৯]{1,3}|[0-9]{1,3})\.[ \t]+/g;
 
-  return text.replace(markerPattern, (match, _group, offset, full) => {
-    const before = full.slice(0, offset);
+  return text
+    .split("\n")
+    .map((line) => {
+      const matches = Array.from(line.matchAll(numberMarker)).filter(
+        (match) => {
+          const index = match.index;
 
-    if (before === "" || /\n[ \t]*$/.test(before)) {
-      return match;
-    }
+          // নম্বরটি লাইনের শুরুতে অথবা ফাঁকা স্থানের পরে থাকতে হবে।
+          return index === 0 || /[ \t]/.test(line[index - 1]);
+        }
+      );
 
-    return "\n" + match;
-  });
+      // একটি মাত্র নম্বর থাকলে অনুচ্ছেদ ভাঙবে না।
+      if (matches.length < 2) {
+        return line;
+      }
+
+      const firstMarkerIndex = matches[0].index;
+      const prefix = line.slice(0, firstMarkerIndex).trimEnd();
+
+      // প্রতিটি নম্বরের অংশ আলাদা লাইনে নেওয়া হচ্ছে।
+      const items = matches.map((match, index) => {
+        const start = match.index;
+        const next = matches[index + 1];
+        const end = next ? next.index : line.length;
+
+        return line.slice(start, end).trim();
+      });
+
+      // আগের বাক্য থাকলে সেটি আলাদা অনুচ্ছেদে থাকবে।
+      const list = items.join("\n");
+
+      return prefix ? `${prefix}\n\n${list}` : list;
+    })
+    .join("\n");
 }
 
 /* =========================================================
@@ -206,7 +234,6 @@ function getTurndownService() {
 
 /* =========================================================
    REACT TABLE RENDERER
-   Table itself does not have a separate scroll container.
    ========================================================= */
 
 function renderTable(table, tableIndex) {
@@ -275,6 +302,7 @@ export default function LessonMarkdown({ html }) {
       // Step 4: Convert remaining content to Markdown.
       const converted = getTurndownService().turndown(extracted.html);
 
+      // Step 5: Split likely inline numbered lists.
       return {
         markdown: breakInlineListMarkers(converted),
         tables: extracted.tables,
@@ -289,8 +317,7 @@ export default function LessonMarkdown({ html }) {
 
   /*
    * Measure the natural width of the tables.
-   * If a table is wider than the visible Reader area,
-   * expand the entire Reader content to that width.
+   * Keep the full Reader block horizontally scrollable.
    */
   useEffect(() => {
     const scrollElement = scrollRef.current;
@@ -311,6 +338,7 @@ export default function LessonMarkdown({ html }) {
         ).map((table) => table.getBoundingClientRect().width);
 
         const widestTable = Math.max(0, ...tableWidths);
+
         const nextWidth = Math.ceil(
           Math.max(availableWidth, widestTable)
         );
