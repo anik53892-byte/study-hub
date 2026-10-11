@@ -1,13 +1,7 @@
 
 "use client";
 
-import {
-  useMemo,
-  useEffect,
-  useRef,
-  useState,
-  createElement,
-} from "react";
+import { useMemo, createElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -16,52 +10,36 @@ import { gfm as turndownGfm } from "turndown-plugin-gfm";
 
 /* =========================================================
    INLINE NUMBERED LISTS
-   একই লাইনে থাকা একাধিক বাংলা/ইংরেজি নম্বরযুক্ত পয়েন্ট
-   আলাদা করা হবে।
    ========================================================= */
 
 function breakInlineListMarkers(text) {
-  if (typeof text !== "string" || !text) {
-    return text;
-  }
+  if (typeof text !== "string" || !text) return text;
 
-  // 1. / 2. / ১২. ইত্যাদি নম্বরযুক্ত তালিকার চিহ্ন।
-  // চিহ্নের পরে অন্তত একটি স্পেস বা ট্যাব থাকতে হবে।
-  const numberMarker = /(?:[০-৯]{1,3}|[0-9]{1,3})\.[ \t]+/g;
+  const markerPattern = /(?:[০-৯]{1,3}|[0-9]{1,3})\.[ \t]+/g;
 
   return text
     .split("\n")
     .map((line) => {
-      const matches = Array.from(line.matchAll(numberMarker)).filter(
-        (match) => {
-          const index = match.index;
-
-          // নম্বরটি লাইনের শুরুতে অথবা ফাঁকা স্থানের পরে থাকতে হবে।
-          return index === 0 || /[ \t]/.test(line[index - 1]);
-        }
+      const matches = Array.from(line.matchAll(markerPattern)).filter(
+        (match) =>
+          match.index === 0 || /[ \t]/.test(line[match.index - 1])
       );
 
-      // একটি মাত্র নম্বর থাকলে অনুচ্ছেদ ভাঙবে না।
-      if (matches.length < 2) {
-        return line;
-      }
+      // একটিমাত্র নম্বর থাকলে অনুচ্ছেদ ভাঙবে না।
+      if (matches.length < 2) return line;
 
-      const firstMarkerIndex = matches[0].index;
-      const prefix = line.slice(0, firstMarkerIndex).trimEnd();
+      const prefix = line.slice(0, matches[0].index).trimEnd();
 
-      // প্রতিটি নম্বরের অংশ আলাদা লাইনে নেওয়া হচ্ছে।
       const items = matches.map((match, index) => {
-        const start = match.index;
         const next = matches[index + 1];
         const end = next ? next.index : line.length;
 
-        return line.slice(start, end).trim();
+        return line.slice(match.index, end).trim();
       });
 
-      // আগের বাক্য থাকলে সেটি আলাদা অনুচ্ছেদে থাকবে।
-      const list = items.join("\n");
-
-      return prefix ? `${prefix}\n\n${list}` : list;
+      return prefix
+        ? `${prefix}\n\n${items.join("\n")}`
+        : items.join("\n");
     })
     .join("\n");
 }
@@ -128,10 +106,7 @@ function flattenTableCellParagraphs(html) {
 
 function extractTables(html) {
   if (typeof DOMParser === "undefined") {
-    return {
-      html,
-      tables: [],
-    };
+    return { html, tables: [] };
   }
 
   const tables = [];
@@ -141,8 +116,8 @@ function extractTables(html) {
 
     Array.from(doc.querySelectorAll("table")).forEach((table) => {
       const rows = Array.from(table.querySelectorAll("tr")).map(
-        (row) => {
-          const cells = Array.from(row.children)
+        (row) =>
+          Array.from(row.children)
             .filter(
               (cell) =>
                 cell.tagName === "TH" || cell.tagName === "TD"
@@ -158,10 +133,7 @@ function extractTables(html) {
                 1,
                 Number(cell.getAttribute("rowspan")) || 1
               ),
-            }));
-
-          return cells;
-        }
+            }))
       );
 
       if (!rows.length) return;
@@ -180,10 +152,7 @@ function extractTables(html) {
       tables,
     };
   } catch {
-    return {
-      html,
-      tables: [],
-    };
+    return { html, tables: [] };
   }
 }
 
@@ -204,7 +173,7 @@ function getTurndownService() {
 
   turndownService.use(turndownGfm);
 
-  // Preserve Markdown markers that were intentionally typed.
+  // Preserve intentionally typed Markdown markers.
   turndownService.escape = (text) => text;
 
   turndownService.addRule("paragraph", {
@@ -217,12 +186,10 @@ function getTurndownService() {
         return content;
       }
 
-      // Keep table placeholders in separate Markdown blocks.
       if (/^LESSONTABLEPLACEHOLDER\d+$/.test(content.trim())) {
         return `\n\n${content.trim()}\n\n`;
       }
 
-      // Keep consecutive pasted lines together.
       return content ? `${content}\n` : "";
     },
   });
@@ -233,7 +200,7 @@ function getTurndownService() {
 }
 
 /* =========================================================
-   REACT TABLE RENDERER
+   TABLE RENDERER
    ========================================================= */
 
 function renderTable(table, tableIndex) {
@@ -245,9 +212,7 @@ function renderTable(table, tableIndex) {
     },
     createElement(
       "table",
-      {
-        className: "lesson-table",
-      },
+      { className: "lesson-table" },
       createElement(
         "tbody",
         null,
@@ -280,29 +245,17 @@ function renderTable(table, tableIndex) {
    ========================================================= */
 
 export default function LessonMarkdown({ html }) {
-  const scrollRef = useRef(null);
-  const contentRef = useRef(null);
-  const [contentWidth, setContentWidth] = useState(null);
-
   const { markdown, tables } = useMemo(() => {
     if (!html || typeof html !== "string") {
       return { markdown: "", tables: [] };
     }
 
     try {
-      // Step 1: Recover escaped table HTML.
       const recovered = recoverEscapedHtmlTables(html);
-
-      // Step 2: Normalize paragraphs within table cells.
       const flattened = flattenTableCellParagraphs(recovered);
-
-      // Step 3: Extract tables before Markdown conversion.
       const extracted = extractTables(flattened);
-
-      // Step 4: Convert remaining content to Markdown.
       const converted = getTurndownService().turndown(extracted.html);
 
-      // Step 5: Split likely inline numbered lists.
       return {
         markdown: breakInlineListMarkers(converted),
         tables: extracted.tables,
@@ -315,63 +268,6 @@ export default function LessonMarkdown({ html }) {
     }
   }, [html]);
 
-  /*
-   * Measure the natural width of the tables.
-   * Keep the full Reader block horizontally scrollable.
-   */
-  useEffect(() => {
-    const scrollElement = scrollRef.current;
-    const contentElement = contentRef.current;
-
-    if (!scrollElement || !contentElement) return;
-
-    let animationFrame = 0;
-
-    const updateContentWidth = () => {
-      cancelAnimationFrame(animationFrame);
-
-      animationFrame = requestAnimationFrame(() => {
-        const availableWidth = scrollElement.clientWidth;
-
-        const tableWidths = Array.from(
-          contentElement.querySelectorAll(".lesson-table")
-        ).map((table) => table.getBoundingClientRect().width);
-
-        const widestTable = Math.max(0, ...tableWidths);
-
-        const nextWidth = Math.ceil(
-          Math.max(availableWidth, widestTable)
-        );
-
-        setContentWidth((previousWidth) =>
-          previousWidth === nextWidth ? previousWidth : nextWidth
-        );
-      });
-    };
-
-    updateContentWidth();
-
-    let resizeObserver;
-
-    if (typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(updateContentWidth);
-
-      resizeObserver.observe(scrollElement);
-
-      contentElement
-        .querySelectorAll(".lesson-table")
-        .forEach((table) => resizeObserver.observe(table));
-    } else {
-      window.addEventListener("resize", updateContentWidth);
-    }
-
-    return () => {
-      cancelAnimationFrame(animationFrame);
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", updateContentWidth);
-    };
-  }, [html, markdown, tables]);
-
   if (!markdown.trim() && tables.length === 0) {
     return null;
   }
@@ -379,7 +275,6 @@ export default function LessonMarkdown({ html }) {
   return createElement(
     "div",
     {
-      ref: scrollRef,
       className: "lesson-content-scroll",
       role: "region",
       "aria-label": "পাঠের সম্পূর্ণ কনটেন্ট",
@@ -388,20 +283,15 @@ export default function LessonMarkdown({ html }) {
     createElement(
       "div",
       {
-        ref: contentRef,
         className: "lesson-content",
-        style: {
-          width: contentWidth ? `${contentWidth}px` : "100%",
-          maxWidth: "none",
-        },
       },
       createElement(
         ReactMarkdown,
         {
           remarkPlugins: [remarkGfm, remarkBreaks],
+
           components: {
             p({ children, ...props }) {
-              // Replace standalone table placeholders with React tables.
               if (typeof children === "string") {
                 const match = children.match(
                   /^LESSONTABLEPLACEHOLDER(\d+)$/
