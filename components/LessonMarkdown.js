@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, createElement } from "react";
@@ -95,9 +96,8 @@ function flattenTableCellParagraphs(html) {
 /* =========================================================
    TABLE DATA EXTRACTION
 
-   Extract real HTML tables before converting the remaining
-   content to Markdown. This prevents Turndown from flattening
-   the HTML tables into ordinary text.
+   Extract HTML tables before converting remaining content
+   to Markdown.
    ========================================================= */
 
 function extractTables(html) {
@@ -113,7 +113,6 @@ function extractTables(html) {
   try {
     const doc = new DOMParser().parseFromString(html, "text/html");
 
-    // Extract each actual table separately.
     Array.from(doc.querySelectorAll("table")).forEach((table) => {
       const rows = Array.from(table.querySelectorAll("tr")).map(
         (row) => {
@@ -125,8 +124,14 @@ function extractTables(html) {
             .map((cell) => ({
               text: cell.textContent || "",
               header: cell.tagName === "TH",
-              colSpan: Math.max(1, Number(cell.getAttribute("colspan")) || 1),
-              rowSpan: Math.max(1, Number(cell.getAttribute("rowspan")) || 1),
+              colSpan: Math.max(
+                1,
+                Number(cell.getAttribute("colspan")) || 1
+              ),
+              rowSpan: Math.max(
+                1,
+                Number(cell.getAttribute("rowspan")) || 1
+              ),
             }));
 
           return cells;
@@ -204,36 +209,45 @@ function getTurndownService() {
 /* =========================================================
    SAFE REACT TABLE RENDERER
 
-   Table content is rendered as React elements.
-   No dangerouslySetInnerHTML is used.
+   Only the wrapper scrolls horizontally.
    ========================================================= */
 
 function renderTable(table, tableIndex) {
   return createElement(
-    "table",
+    "div",
     {
-      key: `lesson-table-${tableIndex}`,
+      key: `lesson-table-wrapper-${tableIndex}`,
+      className: "lesson-table-wrapper",
+      role: "region",
+      "aria-label": "স্ক্রলযোগ্য টেবিল",
+      tabIndex: 0,
     },
     createElement(
-      "tbody",
-      null,
-      table.rows.map((row, rowIndex) =>
-        createElement(
-          "tr",
-          { key: `row-${rowIndex}` },
-          row.map((cell, cellIndex) => {
-            const tag = cell.header ? "th" : "td";
+      "table",
+      {
+        className: "lesson-table",
+      },
+      createElement(
+        "tbody",
+        null,
+        table.rows.map((row, rowIndex) =>
+          createElement(
+            "tr",
+            { key: `row-${rowIndex}` },
+            row.map((cell, cellIndex) => {
+              const tag = cell.header ? "th" : "td";
 
-            return createElement(
-              tag,
-              {
-                key: `cell-${rowIndex}-${cellIndex}`,
-                colSpan: cell.colSpan,
-                rowSpan: cell.rowSpan,
-              },
-              cell.text
-            );
-          })
+              return createElement(
+                tag,
+                {
+                  key: `cell-${rowIndex}-${cellIndex}`,
+                  colSpan: cell.colSpan,
+                  rowSpan: cell.rowSpan,
+                },
+                cell.text
+              );
+            })
+          )
         )
       )
     )
@@ -257,7 +271,7 @@ export default function LessonMarkdown({ html }) {
       // Step 2: Normalize paragraphs within table cells.
       const flattened = flattenTableCellParagraphs(recovered);
 
-      // Step 3: Extract actual tables before Markdown conversion.
+      // Step 3: Extract tables before Markdown conversion.
       const extracted = extractTables(flattened);
 
       // Step 4: Convert only the remaining content to Markdown.
@@ -280,32 +294,36 @@ export default function LessonMarkdown({ html }) {
     return null;
   }
 
-  return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkBreaks]}
-      components={{
-        p({ children, ...props }) {
-          // Replace standalone table placeholders with real React tables.
-          if (typeof children === "string") {
-            const match = children.match(
-              /^LESSONTABLEPLACEHOLDER(\d+)$/
-            );
+  return createElement(
+    "div",
+    { className: "lesson-content" },
+    createElement(
+      ReactMarkdown,
+      {
+        remarkPlugins: [remarkGfm, remarkBreaks],
+        components: {
+          p({ children, ...props }) {
+            // Replace standalone table placeholders with React tables.
+            if (typeof children === "string") {
+              const match = children.match(
+                /^LESSONTABLEPLACEHOLDER(\d+)$/
+              );
 
-            if (match) {
-              const index = Number(match[1]);
-              const table = tables[index];
+              if (match) {
+                const index = Number(match[1]);
+                const table = tables[index];
 
-              if (table) {
-                return renderTable(table, index);
+                if (table) {
+                  return renderTable(table, index);
+                }
               }
             }
-          }
 
-          return createElement("p", props, children);
+            return createElement("p", props, children);
+          },
         },
-      }}
-    >
-      {markdown}
-    </ReactMarkdown>
+      },
+      markdown
+    )
   );
 }
