@@ -1,264 +1,310 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, createElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
 import TurndownService from "turndown";
 import { gfm as turndownGfm } from "turndown-plugin-gfm";
 
-/*
- * সমস্যাটা দুই রকম হতে পারে, আর দুটোই এখানে একসাথে সামলানো হচ্ছে:
- *
- * ১) ChatGPT-এর "Copy" বাটনে চাপ দিয়ে কপি করলে, সেটা rich (HTML)
- *    ফরম্যাট নিয়ে আসে — Tiptap তখন আসল <h1>, <strong>, <table> বানায়।
- *    এটা editor-এ ঠিকই দেখা যায়, কিন্তু শুধু plain text (content_text)
- *    থেকে Markdown রেন্ডার করলে bold/italic/heading-এর আসল চিহ্নই
- *    থাকে না (ওগুলো তো কখনো "**" হিসেবে টাইপ হয়নি, সরাসরি bold হয়েই
- *    এসেছিল) — তাই রিডার মোডে সব plain দেখাতো।
- *
- * ২) টেক্সট সিলেক্ট করে/অন্য কোনোভাবে কপি করলে শুধু plain text আসে,
- *    যেখানে "#", "**" আক্ষরিক চিহ্ন হিসেবেই থেকে যায়।
- *
- * সমাধান: lesson-এর আসল HTML (content) নিয়ে, সেটাকে turndown দিয়ে
- * Markdown টেক্সটে রূপান্তর করা হয়। turndown আসল HTML ট্যাগ
- * (h1/strong/em/table) পেলে সেটাকে Markdown চিহ্নে (#, **, |) বদলে
- * দেয়; আর যেখানে এমনিতেই plain text-এ "#", "**" লেখা আছে, সেটা তো
- * এমনিই থেকে যায়। এরপর react-markdown সেই Markdown টেক্সট পড়ে আসল
- * heading/bold/italic/table হিসেবে দেখায় — dangerouslySetInnerHTML
- * ছাড়াই, নিরাপদ React element রেন্ডারিং দিয়ে। এভাবে দুই ধরনের
- * paste-ই (rich copy এবং plain text copy) সঠিকভাবে দেখা যায়।
- *
- * lesson.content (Supabase-এ যা সংরক্ষিত আছে) এখানে একদমই বদলানো হয়
- * না — শুধু *দেখানোর* সময় Markdown-এ রূপান্তর করা হয়, তাই পুরনো
- * lesson-গুলোও ঠিকভাবে দেখা যাবে, কোনো migration লাগবে না।
- */
+/* =========================================================
+   BANGLA LIST MARKERS
+   ========================================================= */
 
-// বাংলা সংখ্যা (১. ২. ৩. ...) ও বাংলা অক্ষরভিত্তিক MCQ অপশন (ক) খ) গ) ...)
-// Markdown-এর নিজস্ব কোনো নিয়মে লিস্ট হিসেবে ধরা পড়ে না — Markdown শুধু
-// ইংরেজি সংখ্যা (1. 2. 3.)-কে list marker হিসেবে চেনে। এছাড়া অনেক সময়
-// পুরো লেখাটা (১ থেকে ১২ পর্যন্ত) মূল উৎসেই একটামাত্র প্যারাগ্রাফ/লাইনে
-// জোড়া লাগানো থাকে। এই ফাংশন সেই মার্কারগুলো খুঁজে বের করে প্রতিটার
-// ঠিক আগে একটা নতুন লাইন বসিয়ে দেয়, যাতে প্রতিটা আইটেম নিজের লাইনে
-// আলাদাভাবে দেখায়। দশমিক সংখ্যা (যেমন "৩৭.৫ ডিগ্রি") ভুলভাবে ভেঙে না
-// যায় তাই শুধু তখনই মার্কার ধরা হয় যখন বিন্দু/বন্ধনীর ঠিক পরে স্পেস আছে
-// (দশমিকে বিন্দুর পরপরই আরেকটা অঙ্ক থাকে, স্পেস থাকে না)।
 function breakInlineListMarkers(text) {
   const bengaliNumberMarker = "[০-৯]{1,3}\\.";
-  // MCQ অপশন কখনো বন্ধনী দিয়ে লেখা হয় (ক), খ)), কখনো বিন্দু দিয়ে (ক., খ.) —
-  // দুটোই ধরা হচ্ছে।
   const bengaliOptionMarker = "[\\u0995-\\u09B9\\u09DC\\u09DD\\u09DF][.)]";
+
   const markerPattern = new RegExp(
     `(${bengaliNumberMarker}|${bengaliOptionMarker})(?=\\s)`,
     "g"
   );
 
-  return text.replace(markerPattern, (match, _g, offset, full) => {
+  return text.replace(markerPattern, (match, _group, offset, full) => {
     const before = full.slice(0, offset);
-    // শুরুতে বা আগে থেকেই নতুন লাইনে থাকলে আর নতুন করে ভাঙার দরকার নেই।
-    if (before === "" || /\n[ \t]*$/.test(before)) return match;
+
+    if (before === "" || /\n[ \t]*$/.test(before)) {
+      return match;
+    }
+
     return "\n" + match;
   });
 }
 
-// কখনো কখনো ChatGPT থেকে টেবিল কপি করার সময় আসল (রেন্ডার করা) টেবিলের
-// বদলে তার HTML সোর্স কোডটাই (<table>...</table>) প্লেইন টেক্সট হিসেবে
-// পেস্ট হয়ে যায়। এই টেক্সটটুকু অন্য সাধারণ বাক্যের সাথে একই প্যারাগ্রাফে
-// বা একাধিক প্যারাগ্রাফ জুড়ে যেভাবেই মেশানো থাকুক না কেন (শুরুতে/মাঝে/
-// একাধিক লাইনে ভাগ হয়ে), এই ফাংশন পুরো content-এর টেক্সট একসাথে পড়ে
-// "<table" থেকে মিলে যাওয়া "</table>" পর্যন্ত অংশটা ঠিক কোথায় আছে বের
-// করে (DOM Range ব্যবহার করে, যা paragraph-এর সীমানা পার হয়েও কাজ করে),
-// সেই নির্দিষ্ট অংশটুকু মুছে তার জায়গায় আসল HTML হিসেবে পার্স করা একটা
-// সত্যিকারের <table> element বসিয়ে দেয় — বাকি লেখা (আগে/পরে) অক্ষত
-// থাকে। কিছু না মিললে বা কোনো কারণে ব্যর্থ হলে মূল HTML-টাই অপরিবর্তিত
-// ফেরত যায়, কোনো ঝুঁকি নেই।
-function locateTextOffset(root, targetIndex) {
-  const ownerDoc = root.ownerDocument || document;
-  const walker = ownerDoc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let consumed = 0;
-  let node = walker.nextNode();
-  while (node) {
-    const len = node.nodeValue.length;
-    if (consumed + len >= targetIndex) {
-      return { node, offset: targetIndex - consumed };
-    }
-    consumed += len;
-    node = walker.nextNode();
-  }
-  return null;
-}
+/* =========================================================
+   RECOVER HTML TAGS THAT WERE PASTED AS TEXT
+
+   Handles:
+   &lt;table>...</table>
+   &lt;table&gt;...&lt;/table&gt;
+   &amp;lt;table&amp;gt;...&amp;lt;/table&amp;gt;
+   ========================================================= */
 
 function recoverEscapedHtmlTables(html) {
+  if (!html || typeof html !== "string") return html;
+
+  return html.replace(
+    /&(?:amp;)*lt;(\/?(?:table|colgroup|col|thead|tbody|tfoot|tr|th|td|p)\b)([\s\S]*?)(?:&(?:amp;)*gt;|>)/gi,
+    (_match, tag, attributes) => `<${tag}${attributes}>`
+  );
+}
+
+/* =========================================================
+   FLATTEN PARAGRAPHS INSIDE TABLE CELLS
+   ========================================================= */
+
+function flattenTableCellParagraphs(html) {
   if (
-    typeof window === "undefined" ||
     typeof DOMParser === "undefined" ||
-    typeof document === "undefined" ||
-    typeof document.createRange !== "function"
+    !html ||
+    !/<table\b/i.test(html)
   ) {
     return html;
   }
-  if (!html || !/&lt;table[\s>]/i.test(html)) return html;
 
   try {
     const doc = new DOMParser().parseFromString(html, "text/html");
 
-    // একই content-এ একাধিক এমন টেবিল থাকতে পারে বলে লুপে চালানো হচ্ছে,
-    // তবে অসীম লুপ এড়াতে একটা সীমা রাখা হলো।
-    for (let guard = 0; guard < 20; guard++) {
-      const fullText = doc.body.textContent || "";
-      const startMatch = /<table[\s>]/i.exec(fullText);
-      if (!startMatch) break;
-
-      const startIdx = startMatch.index;
-      const tailMatch = /<\/table\s*>/i.exec(fullText.slice(startIdx));
-      if (!tailMatch) break;
-      const endIdx = startIdx + tailMatch.index + tailMatch[0].length;
-
-      const tableSourceText = fullText.slice(startIdx, endIdx);
-      const tableDoc = new DOMParser().parseFromString(tableSourceText, "text/html");
-      const parsedTable = tableDoc.querySelector("table");
-      if (!parsedTable) break;
-
-      const startPos = locateTextOffset(doc.body, startIdx);
-      const endPos = locateTextOffset(doc.body, endIdx);
-      if (!startPos || !endPos) break;
-
-      const range = doc.createRange();
-      range.setStart(startPos.node, startPos.offset);
-      range.setEnd(endPos.node, endPos.offset);
-      range.deleteContents();
-
-      const insertedTable = doc.importNode(parsedTable, true);
-      range.insertNode(insertedTable);
-
-      // <table>, <p>-এর ভেতরে বৈধ নয় — দরকার হলে বের করে বাইরে বসানো হচ্ছে।
-      if (insertedTable.parentNode && insertedTable.parentNode.nodeName === "P") {
-        const p = insertedTable.parentNode;
-        p.parentNode.insertBefore(insertedTable, p);
-        if (!p.textContent.trim()) p.remove();
-      }
-    }
-
-    // ফাঁকা হয়ে যাওয়া <p></p> থাকলে পরিষ্কার করা।
-    doc.body.querySelectorAll("p").forEach((p) => {
-      if (!p.textContent.trim() && p.children.length === 0) p.remove();
-    });
-
-    return doc.body.innerHTML;
-  } catch {
-    return html;
-  }
-}
-
-// Tiptap-এর Table এক্সটেনশনে প্রতিটা সেল (<td>/<th>)-এর ভেতরের টেক্সট
-// সবসময় একটা <p>-তে মোড়ানো থাকে, আর কেউ সেলের ভেতর Enter চাপলে একাধিক
-// <p>-ও তৈরি হতে পারে। একটা Markdown টেবিলের সেল কখনোই একাধিক লাইনে
-// থাকতে পারে না — তাই turndown-এ পাঠানোর *আগেই*, প্রতিটা সেলের সব
-// <p>-কে একটা স্পেস দিয়ে জোড়া লাগিয়ে একটামাত্র প্যারাগ্রাফ বানিয়ে
-// নেওয়া হচ্ছে। এতে সেলের ভেতর কোনো লুকানো নতুন-লাইন থাকেই না, ফলে
-// table সবসময় ঠিক গঠন নিয়ে বের হয় — turndown/turndown-plugin-gfm
-// সেলের ভেতরের নতুন-লাইন ঠিক কীভাবে সামলায় তার ওপর নির্ভর করতে হয় না।
-function flattenTableCellParagraphs(html) {
-  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
-    return html;
-  }
-  if (!html || html.indexOf("<table") === -1) return html;
-
-  try {
-    const doc = new DOMParser().parseFromString(html, "text/html");
     doc.querySelectorAll("td, th").forEach((cell) => {
-      const paragraphs = cell.querySelectorAll(":scope > p");
+      const paragraphs = Array.from(cell.children).filter(
+        (child) => child.tagName === "P"
+      );
+
       if (paragraphs.length <= 1) return;
 
-      const merged = Array.from(paragraphs)
-        .map((p) => p.innerHTML.trim())
+      const merged = paragraphs
+        .map((paragraph) => paragraph.innerHTML.trim())
         .filter(Boolean)
         .join(" ");
 
       cell.innerHTML = "";
-      const p = doc.createElement("p");
-      p.innerHTML = merged;
-      cell.appendChild(p);
+
+      if (merged) {
+        const paragraph = doc.createElement("p");
+        paragraph.innerHTML = merged;
+        cell.appendChild(paragraph);
+      }
     });
+
     return doc.body.innerHTML;
   } catch {
-    // ব্যর্থ হলে মূল HTML-টাই পাঠিয়ে দেওয়া হোক, অন্তত কিছু একটা দেখাবে।
     return html;
   }
 }
 
-let turndownService = null;
-function getTurndownService() {
-  if (!turndownService) {
-    turndownService = new TurndownService({
-      headingStyle: "atx",
-      bulletListMarker: "-",
-      codeBlockStyle: "fenced",
-    });
-    turndownService.use(turndownGfm);
+/* =========================================================
+   TABLE DATA EXTRACTION
 
-    // turndown ডিফল্টভাবে "#", "**", "_" ইত্যাদি চিহ্ন plain text-এ পেলে
-    // সেগুলোর আগে "\" বসিয়ে escape করে দেয় (যেমন "### কথা" → "\### কথা"),
-    // যাতে সাধারণ ডকুমেন্টে ভুলবশত এগুলো Markdown হিসেবে পার্স না হয়।
-    // কিন্তু আমাদের দরকার ঠিক উল্টোটা — ChatGPT থেকে পেস্ট করা plain
-    // টেক্সটে থাকা "#"/"**" আসলে intentional Markdown, ওগুলো escape না
-    // হয়ে বরং আসল heading/bold হিসেবেই পার্স হওয়া দরকার। তাই escaping
-    // পুরোপুরি বন্ধ করে দেওয়া হলো।
-    turndownService.escape = (str) => str;
+   Extract real HTML tables before converting the remaining
+   content to Markdown. This prevents Turndown from flattening
+   the HTML tables into ordinary text.
+   ========================================================= */
 
-    // Tiptap প্রতিটা পেস্ট করা লাইনকে (যেমন একটা Markdown টেবিলের প্রতিটা
-    // সারি) আলাদা <p> হিসেবে রাখে। turndown-এর ডিফল্ট নিয়মে প্রতিটা <p>-র
-    // চারপাশে ফাঁকা লাইন (blank line) বসে — এতে পরপর লাইনগুলো একে
-    // অপরের থেকে ফাঁকা লাইনে আলাদা হয়ে যায়, আর Markdown টেবিল চেনার জন্য
-    // (header → delimiter → সারি) সবগুলো লাইন *একটানা* (ফাঁকা লাইন ছাড়া)
-    // পরপর থাকা জরুরি — নাহলে remark-gfm সেটাকে টেবিল হিসেবে চেনে না।
-    //
-    // আর টেবিলের ভেতরের <p> (সেলের লেখা) আগেই flattenTableCellParagraphs()
-    // দিয়ে একটামাত্র <p>-তে মিলিয়ে ফেলা হয়েছে, তাই সেখানে এই নিয়মে আলাদা
-    // করে কিছু করার দরকার নেই — turndown-plugin-gfm নিজেই সেই একটামাত্র
-    // <p>-র লেখা ধরে সেলটা বানাবে।
-    turndownService.addRule("paragraph", {
-      filter: "p",
-      replacement: function (content, node) {
-        const parentTag = node.parentNode && node.parentNode.nodeName;
-        if (parentTag === "TD" || parentTag === "TH") {
-          return content;
-        }
-        // ২টা newline না রেখে ১টা রাখা হচ্ছে, ফলে পরপর পেস্ট করা লাইনগুলো
-        // Markdown-এ একটানাই থেকে যায় (টেবিল ঠিকভাবে চেনা যায়), আর
-        // remarkBreaks প্লাগিন (নিচে ReactMarkdown-এ ব্যবহার করা হয়েছে)
-        // প্রতিটা একক নতুন লাইনকেও আলাদা লাইন হিসেবেই দেখায় (<br>), তাই
-        // সাধারণ লেখার লাইন-বিন্যাসও আগের মতোই দেখতে লাগে।
-        return content ? content + "\n" : "";
-      },
-    });
-
-    // Tiptap-এর টেবিলে কলামের width রাখার জন্য অদৃশ্য <colgroup>/<col>
-    // ট্যাগ থাকে — এগুলো Markdown-এ কোনো কাজেই লাগে না, বাদ দেওয়া হলো।
-    turndownService.remove(["colgroup", "col"]);
+function extractTables(html) {
+  if (typeof DOMParser === "undefined") {
+    return {
+      html,
+      tables: [],
+    };
   }
+
+  const tables = [];
+
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    // Extract each actual table separately.
+    Array.from(doc.querySelectorAll("table")).forEach((table) => {
+      const rows = Array.from(table.querySelectorAll("tr")).map(
+        (row) => {
+          const cells = Array.from(row.children)
+            .filter(
+              (cell) =>
+                cell.tagName === "TH" || cell.tagName === "TD"
+            )
+            .map((cell) => ({
+              text: cell.textContent || "",
+              header: cell.tagName === "TH",
+              colSpan: Math.max(1, Number(cell.getAttribute("colspan")) || 1),
+              rowSpan: Math.max(1, Number(cell.getAttribute("rowspan")) || 1),
+            }));
+
+          return cells;
+        }
+      );
+
+      if (!rows.length) return;
+
+      const tableIndex = tables.length;
+      tables.push({ rows });
+
+      const placeholder = doc.createElement("p");
+      placeholder.textContent = `LESSONTABLEPLACEHOLDER${tableIndex}`;
+
+      table.replaceWith(placeholder);
+    });
+
+    return {
+      html: doc.body.innerHTML,
+      tables,
+    };
+  } catch {
+    return {
+      html,
+      tables: [],
+    };
+  }
+}
+
+/* =========================================================
+   TURNDOWN CONFIGURATION
+   ========================================================= */
+
+let turndownService = null;
+
+function getTurndownService() {
+  if (turndownService) return turndownService;
+
+  turndownService = new TurndownService({
+    headingStyle: "atx",
+    bulletListMarker: "-",
+    codeBlockStyle: "fenced",
+  });
+
+  turndownService.use(turndownGfm);
+
+  // Preserve Markdown markers that were intentionally typed.
+  turndownService.escape = (text) => text;
+
+  turndownService.addRule("paragraph", {
+    filter: "p",
+
+    replacement(content, node) {
+      const parentTag = node.parentNode?.nodeName;
+
+      if (parentTag === "TD" || parentTag === "TH") {
+        return content;
+      }
+
+      // Keep table placeholders in separate Markdown blocks.
+      if (/^LESSONTABLEPLACEHOLDER\d+$/.test(content.trim())) {
+        return `\n\n${content.trim()}\n\n`;
+      }
+
+      // Keep consecutive pasted lines together.
+      return content ? `${content}\n` : "";
+    },
+  });
+
+  turndownService.remove(["colgroup", "col"]);
+
   return turndownService;
 }
 
+/* =========================================================
+   SAFE REACT TABLE RENDERER
+
+   Table content is rendered as React elements.
+   No dangerouslySetInnerHTML is used.
+   ========================================================= */
+
+function renderTable(table, tableIndex) {
+  return createElement(
+    "table",
+    {
+      key: `lesson-table-${tableIndex}`,
+    },
+    createElement(
+      "tbody",
+      null,
+      table.rows.map((row, rowIndex) =>
+        createElement(
+          "tr",
+          { key: `row-${rowIndex}` },
+          row.map((cell, cellIndex) => {
+            const tag = cell.header ? "th" : "td";
+
+            return createElement(
+              tag,
+              {
+                key: `cell-${rowIndex}-${cellIndex}`,
+                colSpan: cell.colSpan,
+                rowSpan: cell.rowSpan,
+              },
+              cell.text
+            );
+          })
+        )
+      )
+    )
+  );
+}
+
+/* =========================================================
+   MAIN COMPONENT
+   ========================================================= */
+
 export default function LessonMarkdown({ html }) {
-  const markdown = useMemo(() => {
-    if (!html || !html.replace(/<[^>]*>/g, "").trim()) return "";
-    let md;
-    try {
-      const recovered = recoverEscapedHtmlTables(html);
-      const flattened = flattenTableCellParagraphs(recovered);
-      md = getTurndownService().turndown(flattened);
-    } catch {
-      // turndown কোনো কারণে ব্যর্থ হলে অন্তত সাধারণ লেখাটা দেখাই, একদম খালি না রেখে।
-      md = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const { markdown, tables } = useMemo(() => {
+    if (!html || typeof html !== "string") {
+      return { markdown: "", tables: [] };
     }
-    return breakInlineListMarkers(md);
+
+    try {
+      // Step 1: Recover escaped table HTML.
+      const recovered = recoverEscapedHtmlTables(html);
+
+      // Step 2: Normalize paragraphs within table cells.
+      const flattened = flattenTableCellParagraphs(recovered);
+
+      // Step 3: Extract actual tables before Markdown conversion.
+      const extracted = extractTables(flattened);
+
+      // Step 4: Convert only the remaining content to Markdown.
+      const converted = getTurndownService().turndown(extracted.html);
+
+      return {
+        markdown: breakInlineListMarkers(converted),
+        tables: extracted.tables,
+      };
+    } catch {
+      // Keep a fallback rather than crashing the reader.
+      return {
+        markdown: html.replace(/<[^>]*>/g, " ").trim(),
+        tables: [],
+      };
+    }
   }, [html]);
 
-  if (!markdown.trim()) return null;
+  if (!markdown.trim() && tables.length === 0) {
+    return null;
+  }
 
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkBreaks]}
+      components={{
+        p({ children, ...props }) {
+          // Replace standalone table placeholders with real React tables.
+          if (typeof children === "string") {
+            const match = children.match(
+              /^LESSONTABLEPLACEHOLDER(\d+)$/
+            );
+
+            if (match) {
+              const index = Number(match[1]);
+              const table = tables[index];
+
+              if (table) {
+                return renderTable(table, index);
+              }
+            }
+          }
+
+          return createElement("p", props, children);
+        },
+      }}
+    >
       {markdown}
     </ReactMarkdown>
   );
