@@ -9,8 +9,8 @@ body {
 }
 
 /* =========================================================
-   FULL READER BLOCK — HORIZONTAL SCROLL
-   পুরো Reader কনটেন্ট একসঙ্গে ডানে-বামে স্ক্রল করবে
+   FULL READER BLOCK
+   সাধারণ লেখা স্ক্রিনের মধ্যে থাকবে
    ========================================================= */
 
 .lesson-content-scroll {
@@ -18,99 +18,117 @@ body {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  box-sizing: border-box;
+
+  overflow-x: hidden;
+  overflow-y: visible;
+
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  scrollbar-color: #6257a8 #1b1b20;
-}
-
-.lesson-content-scroll::-webkit-scrollbar {
-  height: 6px;
-}
-
-.lesson-content-scroll::-webkit-scrollbar-track {
-  background: #1b1b20;
-  border-radius: 10px;
-}
-
-.lesson-content-scroll::-webkit-scrollbar-thumb {
-  background: #6257a8;
-  border-radius: 10px;
 }
 
 /* =========================================================
    LESSON CONTENT
-   Pure dark reading theme
-   Comfortable for long mobile reading
+   Mobile-friendly dark reading theme
    ========================================================= */
 
 .lesson-content {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+
   font-size: 17px;
   line-height: 1.85;
   color: #ffffff;
   letter-spacing: 0.1px;
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: break-word;
-  box-sizing: border-box;
+
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 /* Main Heading */
+
 .lesson-content h1 {
+  max-width: 100%;
+  box-sizing: border-box;
   font-size: 1.4rem;
   font-weight: 700;
   margin: 1.3em 0 0.5em;
   color: #ffffff;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 /* Secondary Heading */
+
 .lesson-content h2 {
+  max-width: 100%;
+  box-sizing: border-box;
   font-size: 1.2rem;
   font-weight: 700;
   margin: 1.1em 0 0.45em;
   color: #ffffff;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 /* Third-level Heading */
+
 .lesson-content h3,
 .lesson-content h4,
 .lesson-content h5,
 .lesson-content h6 {
+  max-width: 100%;
+  box-sizing: border-box;
   font-size: 1.05rem;
   font-weight: 700;
   margin: 1em 0 0.4em;
   color: #ffffff;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 /* Paragraph */
+
 .lesson-content p {
+  max-width: 100%;
   margin: 0.85em 0;
   color: #ffffff;
+  overflow-wrap: anywhere;
 }
 
 /* Unordered List */
+
 .lesson-content ul {
   list-style: disc;
   padding-left: 1.5em;
   margin: 0.85em 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Ordered List */
+
 .lesson-content ol {
   list-style: decimal;
   padding-left: 1.5em;
   margin: 0.85em 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* List Items */
+
 .lesson-content li {
   margin: 0.35em 0;
   color: #ffffff;
+  overflow-wrap: anywhere;
+}
+
+.lesson-content li > p {
+  margin: 0.25em 0;
 }
 
 /* =========================================================
@@ -119,14 +137,15 @@ body {
 
 .lesson-content blockquote {
   border-left: 3px solid #8b7cff;
-  padding-left: 1em;
+  padding: 0.5em 0 0.5em 1em;
   color: #dddde5;
   margin: 1em 0;
   font-style: italic;
   background: rgba(139, 124, 255, 0.08);
   border-radius: 0 8px 8px 0;
-  padding-top: 0.5em;
-  padding-bottom: 0.5em;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
 }
 
 /* =========================================================
@@ -137,37 +156,66 @@ body {
   color: #b9b0ff;
   text-decoration: underline;
   text-underline-offset: 2px;
+  overflow-wrap: anywhere;
 }
 
 /* =========================================================
    TABLE — READER MODE
-   টেবিলের প্রস্থ পুরো Reader ব্লক নির্ধারণ করতে সাহায্য করবে
+   শুধু টেবিলের ভেতরে অনুভূমিক স্ক্রল হবে
+   সাধারণ লেখার প্রস্থ পরিবর্তন হবে না
    ========================================================= */
 
 .lesson-content .lesson-table-wrapper {
   display: block;
-  width: max-content;
-  min-width: 100%;
-  max-width: none;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   margin: 1em 0;
-  overflow: visible;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #6257a8 #1b1b20;
+
+  box-sizing: border-box;
 }
 
-/* টেবিল নিজের স্বাভাবিক প্রয়োজনীয় প্রস্থ নেবে */
+.lesson-content .lesson-table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.lesson-content .lesson-table-wrapper::-webkit-scrollbar-track {
+  background: #1b1b20;
+  border-radius: 10px;
+}
+
+.lesson-content .lesson-table-wrapper::-webkit-scrollbar-thumb {
+  background: #6257a8;
+  border-radius: 10px;
+}
+
+/* Table */
+
 .lesson-content .lesson-table {
   display: table;
   width: max-content;
-  min-width: 0;
+  min-width: 100%;
   max-width: none;
+
   border-collapse: collapse;
   table-layout: auto;
   margin: 0;
+
   color: #ffffff;
   font-size: inherit;
   box-sizing: border-box;
 }
 
 /* Table sections */
+
 .lesson-content .lesson-table thead {
   display: table-header-group;
 }
@@ -181,25 +229,32 @@ body {
 }
 
 /* Table rows */
+
 .lesson-content .lesson-table tr {
   display: table-row;
 }
 
 /* Table cells */
+
 .lesson-content .lesson-table td,
 .lesson-content .lesson-table th {
   display: table-cell;
+
   border: 1px solid #34343a;
   padding: 0.55em 0.75em;
+
   text-align: left;
   vertical-align: top;
   color: #ffffff;
+
   overflow-wrap: anywhere;
   word-break: normal;
   min-width: 110px;
+  box-sizing: border-box;
 }
 
 /* Table Header */
+
 .lesson-content .lesson-table th {
   background: #1b1b20;
   font-weight: 600;
@@ -207,12 +262,14 @@ body {
 }
 
 /* Table cell paragraphs */
+
 .lesson-content .lesson-table td p,
 .lesson-content .lesson-table th p {
   margin: 0.25em 0;
 }
 
 /* Table cell lists */
+
 .lesson-content .lesson-table td ul,
 .lesson-content .lesson-table td ol,
 .lesson-content .lesson-table th ul,
@@ -222,7 +279,12 @@ body {
 }
 
 /* Wide tables on small screens */
+
 @media (max-width: 480px) {
+  .lesson-content {
+    font-size: 16px;
+  }
+
   .lesson-content .lesson-table {
     font-size: 0.88em;
   }
@@ -243,11 +305,13 @@ body {
 }
 
 /* Italic */
+
 .lesson-content em {
   color: #ffffff;
 }
 
 /* Underline */
+
 .lesson-content u {
   color: #ffffff;
 }
@@ -262,22 +326,43 @@ body {
   border-radius: 4px;
   font-size: 0.9em;
   color: #c9bfff;
+
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .lesson-content pre {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+
   background: #1b1b20;
   padding: 0.85em 1em;
   border-radius: 10px;
+
   overflow-x: auto;
+  overflow-y: hidden;
+
+  -webkit-overflow-scrolling: touch;
   margin: 1em 0;
 }
 
 .lesson-content pre code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+
   background: transparent;
   padding: 0;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 /* Horizontal divider */
+
 .lesson-content hr {
   border: none;
   border-top: 1px solid #242428;
@@ -292,30 +377,38 @@ body {
   outline: none;
   min-height: 50vh;
   color: #ffffff;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 /* Editor paragraph */
+
 .ProseMirror p {
   color: #ffffff;
 }
 
 /* Editor headings */
+
 .ProseMirror h1,
 .ProseMirror h2 {
   color: #ffffff;
 }
 
 /* Editor lists */
+
 .ProseMirror li {
   color: #ffffff;
 }
 
 /* Editor links */
+
 .ProseMirror a {
   color: #b9b0ff;
+  overflow-wrap: anywhere;
 }
 
 /* Editor blockquote */
+
 .ProseMirror blockquote {
   color: #dddde5;
 }
@@ -334,7 +427,7 @@ body {
 
 /* =========================================================
    TABLE INSIDE EDITOR
-   মূল Editor স্টাইল অপরিবর্তিত
+   Editor-এর মূল টেবিল স্টাইল বজায় থাকবে
    ========================================================= */
 
 .ProseMirror table {
