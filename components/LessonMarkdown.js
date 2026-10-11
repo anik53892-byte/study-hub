@@ -61,6 +61,71 @@ function breakInlineListMarkers(text) {
   });
 }
 
+// কখনো কখনো ChatGPT থেকে টেবিল কপি করার সময় আসল (রেন্ডার করা) টেবিলের
+// বদলে তার HTML সোর্স কোডটাই (<table>...</table>) প্লেইন টেক্সট হিসেবে
+// পেস্ট হয়ে যায়। তখন Tiptap সেটাকে প্রতি লাইনে একটা করে আলাদা <p>-তে
+// সাধারণ টেক্সট হিসেবে রেখে দেয় (আসল <table> element হিসেবে না), আর
+// পর্দায়ও সেটা হুবহু ট্যাগ আকারেই ("<table...>", "<colgroup>"...) দেখা
+// যায় — editor-এও আর reader mode-এও। এই ফাংশন সেই প্যাটার্নটা (একটা
+// প্যারাগ্রাফ "<table" দিয়ে শুরু, পরের কয়েকটা প্যারাগ্রাফ মিলিয়ে
+// "</table>" দিয়ে শেষ) খুঁজে বের করে, পুরো টেক্সটটুকু আবার আসল HTML
+// হিসেবে পার্স করে একটা সত্যিকারের <table> element দিয়ে বদলে দেয় —
+// যাতে তারপর স্বাভাবিক টেবিলের মতোই রেন্ডার হয়। কিছু না মিললে মূল
+// HTML-টা অপরিবর্তিত থেকে যায়, কোনো ঝুঁকি নেই।
+function recoverEscapedHtmlTables(html) {
+  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
+    return html;
+  }
+  if (!html || !/&lt;table[\s>]/i.test(html)) return html;
+
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const nodes = Array.from(doc.body.childNodes);
+
+    let i = 0;
+    while (i < nodes.length) {
+      const node = nodes[i];
+      const text = node.nodeType === 1 ? node.textContent : "";
+
+      if (node.nodeType === 1 && /^\s*<table[\s>]/i.test(text)) {
+        let combined = "";
+        let endIndex = -1;
+
+        for (let j = i; j < nodes.length && j < i + 500; j++) {
+          if (nodes[j].nodeType !== 1) break;
+          combined += nodes[j].textContent;
+          if (/<\/table\s*>/i.test(combined)) {
+            endIndex = j;
+            break;
+          }
+        }
+
+        if (endIndex !== -1) {
+          const tableDoc = new DOMParser().parseFromString(combined, "text/html");
+          const table = tableDoc.querySelector("table");
+          if (table) {
+            const imported = doc.importNode(table, true);
+            node.parentNode.insertBefore(imported, node);
+            for (let k = i; k <= endIndex; k++) {
+              if (nodes[k] && nodes[k].parentNode) {
+                nodes[k].parentNode.removeChild(nodes[k]);
+              }
+            }
+            i = endIndex + 1;
+            continue;
+          }
+        }
+      }
+
+      i++;
+    }
+
+    return doc.body.innerHTML;
+  } catch {
+    return html;
+  }
+}
+
 // Tiptap-এর Table এক্সটেনশনে প্রতিটা সেল (<td>/<th>)-এর ভেতরের টেক্সট
 // সবসময় একটা <p>-তে মোড়ানো থাকে, আর কেউ সেলের ভেতর Enter চাপলে একাধিক
 // <p>-ও তৈরি হতে পারে। একটা Markdown টেবিলের সেল কখনোই একাধিক লাইনে
@@ -156,7 +221,8 @@ export default function LessonMarkdown({ html }) {
     if (!html || !html.replace(/<[^>]*>/g, "").trim()) return "";
     let md;
     try {
-      const flattened = flattenTableCellParagraphs(html);
+      const recovered = recoverEscapedHtmlTables(html);
+      const flattened = flattenTableCellParagraphs(recovered);
       md = getTurndownService().turndown(flattened);
     } catch {
       // turndown কোনো কারণে ব্যর্থ হলে অন্তত সাধারণ লেখাটা দেখাই, একদম খালি না রেখে।
