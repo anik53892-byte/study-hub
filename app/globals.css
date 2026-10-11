@@ -9,6 +9,38 @@ body {
 }
 
 /* =========================================================
+   FULL READER BLOCK — HORIZONTAL SCROLL
+   পুরো Reader কনটেন্ট একসঙ্গে ডানে-বামে স্ক্রল করবে
+   ========================================================= */
+
+.lesson-content-scroll {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #6257a8 #1b1b20;
+}
+
+.lesson-content-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.lesson-content-scroll::-webkit-scrollbar-track {
+  background: #1b1b20;
+  border-radius: 10px;
+}
+
+.lesson-content-scroll::-webkit-scrollbar-thumb {
+  background: #6257a8;
+  border-radius: 10px;
+}
+
+/* =========================================================
    LESSON CONTENT
    Pure dark reading theme
    Comfortable for long mobile reading
@@ -22,6 +54,7 @@ body {
   min-width: 0;
   max-width: 100%;
   overflow-wrap: break-word;
+  box-sizing: border-box;
 }
 
 /* Main Heading */
@@ -108,50 +141,30 @@ body {
 
 /* =========================================================
    TABLE — READER MODE
-   Horizontal scrolling for wide tables
+   টেবিলের প্রস্থ পুরো Reader ব্লক নির্ধারণ করতে সাহায্য করবে
    ========================================================= */
 
-/* টেবিলের বাইরের wrapper ডানে-বামে স্ক্রল হবে */
 .lesson-content .lesson-table-wrapper {
   display: block;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
   margin: 1em 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  scrollbar-color: #6257a8 #1b1b20;
+  overflow: visible;
 }
 
-/* Horizontal scrollbar */
-.lesson-content .lesson-table-wrapper::-webkit-scrollbar {
-  height: 6px;
-}
-
-.lesson-content .lesson-table-wrapper::-webkit-scrollbar-track {
-  background: #1b1b20;
-  border-radius: 10px;
-}
-
-.lesson-content .lesson-table-wrapper::-webkit-scrollbar-thumb {
-  background: #6257a8;
-  border-radius: 10px;
-}
-
-/* টেবিল নিজের প্রয়োজনমতো চওড়া হতে পারবে */
+/* টেবিল নিজের স্বাভাবিক প্রয়োজনীয় প্রস্থ নেবে */
 .lesson-content .lesson-table {
   display: table;
   width: max-content;
-  min-width: 100%;
+  min-width: 0;
   max-width: none;
   border-collapse: collapse;
   table-layout: auto;
   margin: 0;
   color: #ffffff;
   font-size: inherit;
+  box-sizing: border-box;
 }
 
 /* Table sections */
