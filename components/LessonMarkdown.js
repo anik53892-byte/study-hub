@@ -1,7 +1,13 @@
 
 "use client";
 
-import { useMemo, createElement } from "react";
+import {
+  useMemo,
+  useEffect,
+  useRef,
+  useState,
+  createElement,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -34,11 +40,6 @@ function breakInlineListMarkers(text) {
 
 /* =========================================================
    RECOVER HTML TAGS THAT WERE PASTED AS TEXT
-
-   Handles:
-   &lt;table>...</table>
-   &lt;table&gt;...&lt;/table&gt;
-   &amp;lt;table&amp;gt;...&amp;lt;/table&amp;gt;
    ========================================================= */
 
 function recoverEscapedHtmlTables(html) {
@@ -95,9 +96,6 @@ function flattenTableCellParagraphs(html) {
 
 /* =========================================================
    TABLE DATA EXTRACTION
-
-   Extract HTML tables before converting remaining content
-   to Markdown.
    ========================================================= */
 
 function extractTables(html) {
@@ -207,9 +205,8 @@ function getTurndownService() {
 }
 
 /* =========================================================
-   SAFE REACT TABLE RENDERER
-
-   Only the wrapper scrolls horizontally.
+   REACT TABLE RENDERER
+   Table itself does not have a separate scroll container.
    ========================================================= */
 
 function renderTable(table, tableIndex) {
@@ -218,9 +215,6 @@ function renderTable(table, tableIndex) {
     {
       key: `lesson-table-wrapper-${tableIndex}`,
       className: "lesson-table-wrapper",
-      role: "region",
-      "aria-label": "স্ক্রলযোগ্য টেবিল",
-      tabIndex: 0,
     },
     createElement(
       "table",
@@ -259,6 +253,10 @@ function renderTable(table, tableIndex) {
    ========================================================= */
 
 export default function LessonMarkdown({ html }) {
+  const scrollRef = useRef(null);
+  const contentRef = useRef(null);
+  const [contentWidth, setContentWidth] = useState(null);
+
   const { markdown, tables } = useMemo(() => {
     if (!html || typeof html !== "string") {
       return { markdown: "", tables: [] };
@@ -274,7 +272,7 @@ export default function LessonMarkdown({ html }) {
       // Step 3: Extract tables before Markdown conversion.
       const extracted = extractTables(flattened);
 
-      // Step 4: Convert only the remaining content to Markdown.
+      // Step 4: Convert remaining content to Markdown.
       const converted = getTurndownService().turndown(extracted.html);
 
       return {
@@ -282,7 +280,6 @@ export default function LessonMarkdown({ html }) {
         tables: extracted.tables,
       };
     } catch {
-      // Keep a fallback rather than crashing the reader.
       return {
         markdown: html.replace(/<[^>]*>/g, " ").trim(),
         tables: [],
@@ -290,40 +287,114 @@ export default function LessonMarkdown({ html }) {
     }
   }, [html]);
 
+  /*
+   * Measure the natural width of the tables.
+   * If a table is wider than the visible Reader area,
+   * expand the entire Reader content to that width.
+   */
+  useEffect(() => {
+    const scrollElement = scrollRef.current;
+    const contentElement = contentRef.current;
+
+    if (!scrollElement || !contentElement) return;
+
+    let animationFrame = 0;
+
+    const updateContentWidth = () => {
+      cancelAnimationFrame(animationFrame);
+
+      animationFrame = requestAnimationFrame(() => {
+        const availableWidth = scrollElement.clientWidth;
+
+        const tableWidths = Array.from(
+          contentElement.querySelectorAll(".lesson-table")
+        ).map((table) => table.getBoundingClientRect().width);
+
+        const widestTable = Math.max(0, ...tableWidths);
+        const nextWidth = Math.ceil(
+          Math.max(availableWidth, widestTable)
+        );
+
+        setContentWidth((previousWidth) =>
+          previousWidth === nextWidth ? previousWidth : nextWidth
+        );
+      });
+    };
+
+    updateContentWidth();
+
+    let resizeObserver;
+
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(updateContentWidth);
+
+      resizeObserver.observe(scrollElement);
+
+      contentElement
+        .querySelectorAll(".lesson-table")
+        .forEach((table) => resizeObserver.observe(table));
+    } else {
+      window.addEventListener("resize", updateContentWidth);
+    }
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateContentWidth);
+    };
+  }, [html, markdown, tables]);
+
   if (!markdown.trim() && tables.length === 0) {
     return null;
   }
 
   return createElement(
     "div",
-    { className: "lesson-content" },
+    {
+      ref: scrollRef,
+      className: "lesson-content-scroll",
+      role: "region",
+      "aria-label": "পাঠের সম্পূর্ণ কনটেন্ট",
+      tabIndex: 0,
+    },
     createElement(
-      ReactMarkdown,
+      "div",
       {
-        remarkPlugins: [remarkGfm, remarkBreaks],
-        components: {
-          p({ children, ...props }) {
-            // Replace standalone table placeholders with React tables.
-            if (typeof children === "string") {
-              const match = children.match(
-                /^LESSONTABLEPLACEHOLDER(\d+)$/
-              );
-
-              if (match) {
-                const index = Number(match[1]);
-                const table = tables[index];
-
-                if (table) {
-                  return renderTable(table, index);
-                }
-              }
-            }
-
-            return createElement("p", props, children);
-          },
+        ref: contentRef,
+        className: "lesson-content",
+        style: {
+          width: contentWidth ? `${contentWidth}px` : "100%",
+          maxWidth: "none",
         },
       },
-      markdown
+      createElement(
+        ReactMarkdown,
+        {
+          remarkPlugins: [remarkGfm, remarkBreaks],
+          components: {
+            p({ children, ...props }) {
+              // Replace standalone table placeholders with React tables.
+              if (typeof children === "string") {
+                const match = children.match(
+                  /^LESSONTABLEPLACEHOLDER(\d+)$/
+                );
+
+                if (match) {
+                  const index = Number(match[1]);
+                  const table = tables[index];
+
+                  if (table) {
+                    return renderTable(table, index);
+                  }
+                }
+              }
+
+              return createElement("p", props, children);
+            },
+          },
+        },
+        markdown
+      )
     )
   );
 }
