@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -19,6 +20,7 @@ body {
   color: #ffffff;
   letter-spacing: 0.1px;
   min-width: 0;
+  max-width: 100%;
   overflow-wrap: break-word;
 }
 
@@ -106,43 +108,73 @@ body {
 
 /* =========================================================
    TABLE — READER MODE
-   টেবিলের সারি ও কলামের স্বাভাবিক বিন্যাস
+   Horizontal scrolling for wide tables
    ========================================================= */
 
-/* টেবিল স্ক্রল করার জন্য আলাদা wrapper প্রয়োজন হবে না।
-   সাধারণ টেবিল স্বাভাবিক table layout বজায় রাখবে। */
-.lesson-content table {
-  display: table;
+/* টেবিলের বাইরের wrapper ডানে-বামে স্ক্রল হবে */
+.lesson-content .lesson-table-wrapper {
+  display: block;
   width: 100%;
   max-width: 100%;
+  min-width: 0;
+  margin: 1em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #6257a8 #1b1b20;
+}
+
+/* Horizontal scrollbar */
+.lesson-content .lesson-table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.lesson-content .lesson-table-wrapper::-webkit-scrollbar-track {
+  background: #1b1b20;
+  border-radius: 10px;
+}
+
+.lesson-content .lesson-table-wrapper::-webkit-scrollbar-thumb {
+  background: #6257a8;
+  border-radius: 10px;
+}
+
+/* টেবিল নিজের প্রয়োজনমতো চওড়া হতে পারবে */
+.lesson-content .lesson-table {
+  display: table;
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
   border-collapse: collapse;
   table-layout: auto;
-  margin: 1em 0;
+  margin: 0;
   color: #ffffff;
   font-size: inherit;
 }
 
 /* Table sections */
-.lesson-content thead {
+.lesson-content .lesson-table thead {
   display: table-header-group;
 }
 
-.lesson-content tbody {
+.lesson-content .lesson-table tbody {
   display: table-row-group;
 }
 
-.lesson-content tfoot {
+.lesson-content .lesson-table tfoot {
   display: table-footer-group;
 }
 
 /* Table rows */
-.lesson-content tr {
+.lesson-content .lesson-table tr {
   display: table-row;
 }
 
 /* Table cells */
-.lesson-content td,
-.lesson-content th {
+.lesson-content .lesson-table td,
+.lesson-content .lesson-table th {
   display: table-cell;
   border: 1px solid #34343a;
   padding: 0.55em 0.75em;
@@ -150,39 +182,42 @@ body {
   vertical-align: top;
   color: #ffffff;
   overflow-wrap: anywhere;
+  word-break: normal;
+  min-width: 110px;
 }
 
 /* Table Header */
-.lesson-content th {
+.lesson-content .lesson-table th {
   background: #1b1b20;
   font-weight: 600;
   color: #ffffff;
 }
 
 /* Table cell paragraphs */
-.lesson-content td p,
-.lesson-content th p {
+.lesson-content .lesson-table td p,
+.lesson-content .lesson-table th p {
   margin: 0.25em 0;
 }
 
 /* Table cell lists */
-.lesson-content td ul,
-.lesson-content td ol,
-.lesson-content th ul,
-.lesson-content th ol {
+.lesson-content .lesson-table td ul,
+.lesson-content .lesson-table td ol,
+.lesson-content .lesson-table th ul,
+.lesson-content .lesson-table th ol {
   margin: 0.35em 0;
   padding-left: 1.25em;
 }
 
 /* Wide tables on small screens */
 @media (max-width: 480px) {
-  .lesson-content table {
+  .lesson-content .lesson-table {
     font-size: 0.88em;
   }
 
-  .lesson-content td,
-  .lesson-content th {
+  .lesson-content .lesson-table td,
+  .lesson-content .lesson-table th {
     padding: 0.4em;
+    min-width: 110px;
   }
 }
 
@@ -286,6 +321,7 @@ body {
 
 /* =========================================================
    TABLE INSIDE EDITOR
+   মূল Editor স্টাইল অপরিবর্তিত
    ========================================================= */
 
 .ProseMirror table {
