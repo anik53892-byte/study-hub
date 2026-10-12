@@ -15,7 +15,12 @@ import { gfm as turndownGfm } from "turndown-plugin-gfm";
 function breakInlineListMarkers(text) {
   if (typeof text !== "string" || !text) return text;
 
-  const markerPattern = /(?:[০-৯]{1,3}|[0-9]{1,3})\.[ \t]+/g;
+  // সংখ্যাভিত্তিক মার্কার (১. ২. ৩. / 1. 2. 3.) আর বাংলা অক্ষরভিত্তিক MCQ
+  // অপশন মার্কার (ক) খ) গ) / ক. খ. গ.) — দুটোই এখানে একসাথে ধরা হচ্ছে।
+  // আগে শুধু সংখ্যা ধরা হতো, তাই টেবিলের ভেতরে "ক) ... খ) ... গ)..." এক
+  // লাইনেই রয়ে যেত, আলাদা হতো না।
+  const markerPattern =
+    /(?:[০-৯]{1,3}|[0-9]{1,3}|[ক-হড়ঢ়য়])[.)][ \t]+/g;
 
   return text
     .split("\n")
@@ -123,7 +128,11 @@ function extractTables(html) {
                 cell.tagName === "TH" || cell.tagName === "TD"
             )
             .map((cell) => ({
-              text: cell.textContent || "",
+              // টেবিলের সেলগুলো turndown/markdown pipeline-এর বাইরে, সরাসরি
+              // DOM থেকে টেক্সট হিসেবে বের করা হয় — তাই এখানে আলাদা করে
+              // breakInlineListMarkers() চালাতে হচ্ছে, নাহলে সেলের ভেতরের
+              // "ক) ... খ) ... গ)..." এক লাইনেই থেকে যেত।
+              text: breakInlineListMarkers(cell.textContent || ""),
               header: cell.tagName === "TH",
               colSpan: Math.max(
                 1,
