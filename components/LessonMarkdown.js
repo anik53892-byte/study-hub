@@ -318,6 +318,25 @@ export default function LessonMarkdown({ html }) {
 
               return createElement("p", props, children);
             },
+
+            // কিছু টেবিল আসল HTML <table> হিসেবে না এসে, ChatGPT থেকে
+            // সরাসরি Markdown-এর "| ... |" লেখা হিসেবে পেস্ট হয় (কোনো
+            // real <table> element থাকে না)। সেগুলো extractTables()-এর
+            // হাত এড়িয়ে সরাসরি remark-gfm দিয়ে পার্স হয়ে এখানে আসে —
+            // তখন এই "table" component-টা চলে, যেটা একই "lesson-table"
+            // ক্লাস আর স্ক্রল-wrapper বসিয়ে দেয়, যাতে HTML থেকে আসা আর
+            // Markdown থেকে আসা — দুই ধরনের টেবিলই একই রকম দেখতে লাগে।
+            table({ children }) {
+              return createElement(
+                "div",
+                { className: "lesson-table-wrapper" },
+                createElement(
+                  "table",
+                  { className: "lesson-table" },
+                  children
+                )
+              );
+            },
           },
         },
         markdown
