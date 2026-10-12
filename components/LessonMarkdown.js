@@ -199,6 +199,29 @@ function getTurndownService() {
         return `\n\n${content.trim()}\n\n`;
       }
 
+      // যখন টেবিল আসল <table> element না হয়ে, ChatGPT থেকে সরাসরি
+      // Markdown-এর "| ... |" লেখা হিসেবে পেস্ট হয়, তখন সেই পাইপ-লাইনগুলো
+      // আর তার ঠিক পরের সাধারণ বাক্যটা — দুটোই আলাদা <p> হিসেবে আসে, আর
+      // উপরের নিয়মে দুটোর মাঝে মাত্র ১টা নতুন লাইন থাকে (টেবিলের সারিগুলো
+      // একটানা রাখার জন্যই এটা দরকার)। কিন্তু remark-gfm-কে স্পষ্টভাবে
+      // বোঝাতে হয় টেবিলটা কোথায় শেষ হচ্ছে, নাহলে পরের সাধারণ বাক্যটাও
+      // টেবিলের আরেকটা (ভাঙা) সারি হিসেবে ধরে নেয় — এটাই "লম্বা সারি"
+      // সমস্যাটার কারণ। তাই পাইপযুক্ত (টেবিলের মতো) লাইনের ঠিক পরে যদি
+      // পাইপবিহীন (সাধারণ) লাইন আসে, তাদের মাঝে একটা ফাঁকা লাইন জোর
+      // করে বসানো হচ্ছে, যাতে টেবিলটা ওখানেই স্পষ্টভাবে শেষ হয়।
+      const trimmed = content.trim();
+      const prevSibling = node.previousElementSibling;
+      const prevText =
+        prevSibling && prevSibling.nodeName === "P"
+          ? prevSibling.textContent
+          : "";
+      const prevLooksLikeTableRow = /\|/.test(prevText);
+      const thisLooksLikeTableRow = /\|/.test(trimmed);
+
+      if (prevLooksLikeTableRow && !thisLooksLikeTableRow) {
+        return content ? `\n${content}\n` : "";
+      }
+
       return content ? `${content}\n` : "";
     },
   });
