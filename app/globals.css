@@ -251,6 +251,11 @@ body {
   word-break: normal;
   min-width: 110px;
   box-sizing: border-box;
+
+  /* সেলের ভেতর breakInlineListMarkers() যে "\n" বসায় (ক)/খ)/গ)-এর মতো
+     MCQ অপশন আলাদা লাইনে দেখানোর জন্য), সেটা এখানে আসল লাইন-ব্রেক
+     হিসেবে দেখানোর জন্য — বাকি স্বাভাবিক word-wrap অক্ষত রেখেই। */
+  white-space: pre-line;
 }
 
 /* Table Header */
