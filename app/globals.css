@@ -201,17 +201,30 @@ body {
 
 .lesson-content .lesson-table {
   display: table;
-  width: max-content;
-  min-width: 100%;
-  max-width: none;
+
+  /* আগে "width: max-content" ছিল — টেবিল যতটা চওড়া লাগে ততটাই হতো, ফলে
+     বড় একটা বাক্য থাকা সেল এক লাইনেই থেকে যেত আর পুরো টেবিল স্ক্রিনের
+     বাইরে চলে যেত। এখন টেবিল সবসময় স্ক্রিনের প্রস্থেই (100%) আটকে
+     থাকবে, আর "table-layout: fixed"-এর কারণে বড় লেখা নিজে থেকেই পরের
+     লাইনে চলে যাবে (র‍্যাপ হবে) — আলাদা স্ক্রল করতে হবে না, অকারণে
+     ফাঁকা জায়গাও থাকবে না। */
+  width: 100%;
+  table-layout: fixed;
 
   border-collapse: collapse;
-  table-layout: auto;
   margin: 0;
 
   color: #ffffff;
   font-size: inherit;
   box-sizing: border-box;
+}
+
+/* প্রথম কলাম (সাধারণত ছোট লেবেল/শিরোনাম — "বৈশিষ্ট্য", "উপাদান" ইত্যাদি)
+   বাকি কলামের তুলনায় সরু রাখা হচ্ছে, যাতে লম্বা বাক্যওয়ালা কলামগুলো
+   বেশি জায়গা পায়। */
+.lesson-content .lesson-table th:first-child,
+.lesson-content .lesson-table td:first-child {
+  width: 30%;
 }
 
 /* Table sections */
@@ -249,7 +262,6 @@ body {
 
   overflow-wrap: anywhere;
   word-break: normal;
-  min-width: 110px;
   box-sizing: border-box;
 
   /* সেলের ভেতর breakInlineListMarkers() যে "\n" বসায় (ক)/খ)/গ)-এর মতো
@@ -297,7 +309,6 @@ body {
   .lesson-content .lesson-table td,
   .lesson-content .lesson-table th {
     padding: 0.4em;
-    min-width: 110px;
   }
 }
 
