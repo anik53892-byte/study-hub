@@ -71,6 +71,131 @@ function handleTableSourcePaste(view, event) {
   return true;
 }
 
+// ChatGPT থেকে লেখা কপি করলে অনেক সময় ক্লিপবোর্ডে আসল ফরম্যাট করা HTML না
+// এসে শুধু প্লেইন টেক্সট আসে, যার মধ্যে "# ", "**...**", "- " এর মতো
+// মার্কডাউন চিহ্নগুলো সরাসরি লেখা অবস্থায় থাকে। সেই টেক্সট পেস্ট করলে
+// এডিটরে ওই চিহ্নগুলোই হুবহু দেখা যায় (হেডিং/বোল্ড/লিস্ট হিসেবে রেন্ডার
+// হয় না) — কিন্তু "Done" চাপার পর রিডার পেজ যখন HTML থেকে markdown বানিয়ে
+// আবার render করে, তখন ওই একই চিহ্নগুলো ঠিকভাবে হেডিং/বোল্ড/লিস্ট হিসেবে
+// দেখায়। ফলে এডিটর আর রিডারে দুই রকম দেখা যেত। এই ফাংশন-দুটো পেস্ট হওয়ার
+// মুহূর্তেই চিহ্নগুলো ধরে, সত্যিকারের হেডিং/বোল্ড/লিস্ট element বানিয়ে
+// বসিয়ে দেয় — যাতে এডিটরেও ঠিক একই রকম ফরম্যাট করা অবস্থায় দেখা যায়।
+
+function htmlLooksAlreadyFormatted(htmlData) {
+  if (!htmlData || !htmlData.trim()) return false;
+  if (typeof DOMParser === "undefined") return true; // নিশ্চিত না হলে, স্বাভাবিক পেস্টেই ছেড়ে দেওয়া নিরাপদ
+
+  try {
+    const doc = new DOMParser().parseFromString(htmlData, "text/html");
+    return !!doc.querySelector(
+      "h1, h2, h3, h4, h5, h6, strong, b, em, i, ul, ol, table"
+    );
+  } catch {
+    return true;
+  }
+}
+
+function markdownPlainTextToHtml(text) {
+  const hasMarkdownSignal =
+    /(^|\n)[ \t]{0,3}#{1,3}[ \t]+\S/.test(text) || // # হেডিং
+    /\*\*[^*\n]+\*\*/.test(text) || // **বোল্ড**
+    /(^|\n)[ \t]{0,3}[-*][ \t]+\S/.test(text) || // - বা * বুলেট লিস্ট
+    /(^|\n)[ \t]{0,3}\d+\.[ \t]+\S/.test(text); // ১. ২. নম্বর লিস্ট
+
+  if (!hasMarkdownSignal) return null;
+
+  const escapeHtml = (s) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const inline = (s) =>
+    escapeHtml(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+  const lines = text.split("\n");
+  const htmlParts = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    const headingMatch = line.match(/^[ \t]{0,3}(#{1,3})[ \t]+(.*)$/);
+    if (headingMatch) {
+      // এডিটরে শুধু H1/H2 সাপোর্ট করা আছে (StarterKit-এ levels: [1, 2])
+      const level = Math.min(headingMatch[1].length, 2);
+      const tag = `h${level}`;
+      htmlParts.push(
+        `<${tag}>${inline(headingMatch[2].trim())}</${tag}>`
+      );
+      i += 1;
+      continue;
+    }
+
+    const bulletMatch = line.match(/^[ \t]{0,3}[-*][ \t]+(.*)$/);
+    if (bulletMatch) {
+      const items = [];
+      while (i < lines.length) {
+        const m = lines[i].match(/^[ \t]{0,3}[-*][ \t]+(.*)$/);
+        if (!m) break;
+        items.push(`<li><p>${inline(m[1].trim())}</p></li>`);
+        i += 1;
+      }
+      htmlParts.push(`<ul>${items.join("")}</ul>`);
+      continue;
+    }
+
+    const orderedMatch = line.match(/^[ \t]{0,3}\d+\.[ \t]+(.*)$/);
+    if (orderedMatch) {
+      const items = [];
+      while (i < lines.length) {
+        const m = lines[i].match(/^[ \t]{0,3}\d+\.[ \t]+(.*)$/);
+        if (!m) break;
+        items.push(`<li><p>${inline(m[1].trim())}</p></li>`);
+        i += 1;
+      }
+      htmlParts.push(`<ol>${items.join("")}</ol>`);
+      continue;
+    }
+
+    if (!line.trim()) {
+      i += 1;
+      continue;
+    }
+
+    htmlParts.push(`<p>${inline(line)}</p>`);
+    i += 1;
+  }
+
+  return htmlParts.join("");
+}
+
+function handleMarkdownTextPaste(view, event) {
+  if (typeof window === "undefined" || !event.clipboardData) return false;
+
+  const htmlData = event.clipboardData.getData("text/html");
+  if (htmlLooksAlreadyFormatted(htmlData)) return false; // আগে থেকেই ফরম্যাট করা — স্বাভাবিক পেস্টই যথেষ্ট
+
+  const text = event.clipboardData.getData("text/plain");
+  if (!text) return false;
+
+  const html = markdownPlainTextToHtml(text);
+  if (!html) return false;
+
+  const container = document.createElement("div");
+  container.innerHTML = html;
+
+  try {
+    const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(
+      container,
+      { preserveWhitespace: true }
+    );
+    view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+  } catch {
+    return false;
+  }
+
+  event.preventDefault();
+  return true;
+}
+
 export default function LessonEditor({ content, onChange }) {
   // Tracks the content we last pushed INTO the editor (either on load, or a
   // moment ago when this exact prop arrived). Used to tell "the parent gave us
@@ -125,7 +250,8 @@ export default function LessonEditor({ content, onChange }) {
       },
 
       handlePaste(view, event) {
-        return handleTableSourcePaste(view, event);
+        if (handleTableSourcePaste(view, event)) return true;
+        return handleMarkdownTextPaste(view, event);
       },
     },
 
