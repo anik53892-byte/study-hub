@@ -50,6 +50,55 @@ function breakInlineListMarkers(text) {
 }
 
 /* =========================================================
+   "উত্তর: ... ব্যাখ্যা: ..." — উত্তরের অংশ বোল্ড + আলাদা লাইনে
+   ========================================================= */
+
+function formatAnswerExplanation(text) {
+  if (typeof text !== "string" || !text) return text;
+
+  // অনেক সময় "উত্তর: খ) গণের নাম। ব্যাখ্যা: ..." — পুরোটাই একই প্যারাগ্রাফে,
+  // কোনো বোল্ড বা লাইন-ব্রেক ছাড়াই পেস্ট হয়ে যায়। ChatGPT-তে যেমন
+  // "উত্তর: ..." অংশটা বোল্ড আর "ব্যাখ্যা: ..." আলাদা লাইনে থাকে, এখানে
+  // সেটাই স্বয়ংক্রিয়ভাবে করে দেওয়া হচ্ছে — "উত্তর"-অংশকে **বোল্ড** করে
+  // আর "ব্যাখ্যা"-অংশকে নতুন লাইনে সরিয়ে।
+  const boldLine = (line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return line;
+    if (/^\*\*[^*]+\*\*$/.test(trimmed)) return line; // আগে থেকেই বোল্ড
+    return `**${trimmed}**`;
+  };
+
+  return text
+    .split("\n")
+    .map((line) => {
+      const inlineMatch = line.match(
+        /^(\s*উত্তর\s*[:ঃ][^]*?)(\s*ব্যাখ্যা\s*[:ঃ].*)$/
+      );
+
+      if (inlineMatch) {
+        const answerPart = inlineMatch[1].trim();
+        const explanationPart = inlineMatch[2].trim();
+
+        if (answerPart && explanationPart) {
+          return `${boldLine(answerPart)}\n\n${explanationPart}`;
+        }
+      }
+
+      // "উত্তর: ..." আলাদা লাইনেই আছে কিন্তু বোল্ড হয়নি — এমন ক্ষেত্রেও
+      // শুধু বোল্ড করে দেওয়া হচ্ছে।
+      if (
+        /^\s*উত্তর\s*[:ঃ]/.test(line) &&
+        !/ব্যাখ্যা\s*[:ঃ]/.test(line)
+      ) {
+        return boldLine(line);
+      }
+
+      return line;
+    })
+    .join("\n");
+}
+
+/* =========================================================
    RECOVER HTML TAGS THAT WERE PASTED AS TEXT
    ========================================================= */
 
@@ -132,7 +181,9 @@ function extractTables(html) {
               // DOM থেকে টেক্সট হিসেবে বের করা হয় — তাই এখানে আলাদা করে
               // breakInlineListMarkers() চালাতে হচ্ছে, নাহলে সেলের ভেতরের
               // "ক) ... খ) ... গ)..." এক লাইনেই থেকে যেত।
-              text: breakInlineListMarkers(cell.textContent || ""),
+              text: formatAnswerExplanation(
+                breakInlineListMarkers(cell.textContent || "")
+              ),
               header: cell.tagName === "TH",
               colSpan: Math.max(
                 1,
@@ -232,6 +283,47 @@ function getTurndownService() {
 }
 
 /* =========================================================
+   TABLE CELL INLINE FORMATTING (**বোল্ড** + লাইন-ব্রেক)
+   ========================================================= */
+
+function renderInlineCellText(text, keyPrefix) {
+  if (typeof text !== "string" || !text) return text;
+
+  // টেবিলের সেল রেন্ডার হয় সরাসরি DOM টেক্সট থেকে (ReactMarkdown/remark-gfm
+  // পার্স করে না), তাই formatAnswerExplanation() যে "**...**" বসিয়ে দেয়
+  // সেটা এমনিতে প্লেইন টেক্সট হিসেবেই দেখাতো (তারকাচিহ্নসহ)। এখানে
+  // "**...**" অংশটুকু <strong> হিসেবে আর "\n" অংশটুকু <br> হিসেবে
+  // আলাদা করে রেন্ডার করা হচ্ছে।
+  const lines = text.split("\n");
+
+  return lines.flatMap((line, lineIndex) => {
+    const parts = line
+      .split(/(\*\*[^*]+\*\*)/g)
+      .filter((part) => part !== "");
+
+    const nodes = parts.map((part, partIndex) => {
+      const boldMatch = part.match(/^\*\*([^*]+)\*\*$/);
+      if (boldMatch) {
+        return createElement(
+          "strong",
+          { key: `${keyPrefix}-b-${lineIndex}-${partIndex}` },
+          boldMatch[1]
+        );
+      }
+      return part;
+    });
+
+    if (lineIndex < lines.length - 1) {
+      nodes.push(
+        createElement("br", { key: `${keyPrefix}-br-${lineIndex}` })
+      );
+    }
+
+    return nodes;
+  });
+}
+
+/* =========================================================
    TABLE RENDERER
    ========================================================= */
 
@@ -262,7 +354,10 @@ function renderTable(table, tableIndex) {
                   colSpan: cell.colSpan,
                   rowSpan: cell.rowSpan,
                 },
-                cell.text
+                renderInlineCellText(
+                  cell.text,
+                  `cell-${rowIndex}-${cellIndex}`
+                )
               );
             })
           )
@@ -289,7 +384,7 @@ export default function LessonMarkdown({ html }) {
       const converted = getTurndownService().turndown(extracted.html);
 
       return {
-        markdown: breakInlineListMarkers(converted),
+        markdown: formatAnswerExplanation(breakInlineListMarkers(converted)),
         tables: extracted.tables,
       };
     } catch {
