@@ -65,6 +65,18 @@ const LABELED_PAIR_PATTERNS = [
   { first: "ভুল", second: "সঠিক", boldFirst: false },
 ];
 
+// মোবাইল কিবোর্ড/ChatGPT থেকে বাংলা লেখা কপি করলে মাঝে মাঝে চোখে অদৃশ্য
+// ZWJ/ZWNJ (zero-width joiner/non-joiner) ক্যারেক্টার ঢুকে থাকে — দেখতে
+// একদম স্বাভাবিক লাগে, কিন্তু সাধারণ টেক্সট ম্যাচিং-এ সেটা মিলতে বাধা
+// দেয়। তাই লেবেলের প্রতিটা অক্ষরের মাঝে ওই অদৃশ্য ক্যারেক্টারগুলো
+// ঐচ্ছিকভাবে থাকতে পারে ধরে নিয়েই প্যাটার্ন বানানো হচ্ছে।
+function flexibleLabelPattern(label) {
+  return label
+    .split("")
+    .map((ch) => ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("[\\u200B\\u200C\\u200D]*");
+}
+
 function formatAnswerExplanation(text) {
   if (typeof text !== "string" || !text) return text;
 
@@ -87,8 +99,10 @@ function formatAnswerExplanation(text) {
       const rest = prefix ? line.slice(prefix.length) : line;
 
       for (const { first, second, boldFirst } of LABELED_PAIR_PATTERNS) {
+        const firstLabel = flexibleLabelPattern(first);
+        const secondLabel = flexibleLabelPattern(second);
         const pattern = new RegExp(
-          `^(\\s*${first}\\s*[:ঃ][^]*?)(\\s*${second}\\s*[:ঃ].*)$`
+          `^(\\s*${firstLabel}\\s*[:ঃ][^]*?)(\\s*${secondLabel}\\s*[:ঃ].*)$`
         );
         const inlineMatch = rest.match(pattern);
 
@@ -112,8 +126,10 @@ function formatAnswerExplanation(text) {
       // জোড়া ছাড়া একা থাকা লাইনেও (যেমন শুধু "উত্তর: ..." বা শুধু
       // "সঠিক: ...") গুরুত্বপূর্ণ অংশটা বোল্ড করে দেওয়া হচ্ছে।
       for (const { first, second, boldFirst } of LABELED_PAIR_PATTERNS) {
-        const standaloneLabel = boldFirst ? first : second;
-        const otherLabel = boldFirst ? second : first;
+        const standaloneLabel = flexibleLabelPattern(
+          boldFirst ? first : second
+        );
+        const otherLabel = flexibleLabelPattern(boldFirst ? second : first);
         const standalonePattern = new RegExp(
           `^\\s*${standaloneLabel}\\s*[:ঃ]`
         );
