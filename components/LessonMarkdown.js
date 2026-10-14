@@ -50,47 +50,78 @@ function breakInlineListMarkers(text) {
 }
 
 /* =========================================================
-   "উত্তর: ... ব্যাখ্যা: ..." — উত্তরের অংশ বোল্ড + আলাদা লাইনে
+   "উত্তর: ... ব্যাখ্যা: ..." / "ভুল: ... সঠিক: ..." —
+   গুরুত্বপূর্ণ অংশ বোল্ড + আলাদা লাইনে
    ========================================================= */
+
+// এই জোড়াগুলোর একই সমস্যা: দুটো বাক্য একই লাইনে, কোনো বোল্ড বা
+// লাইন-ব্রেক ছাড়াই পেস্ট হয়ে যায় — "উত্তর: ... ব্যাখ্যা: ..." অথবা
+// "ভুল: ... সঠিক: ..."। boldFirst ঠিক করে দেয় কোন অংশটা (গুরুত্বপূর্ণ/
+// সঠিক তথ্যটা) বোল্ড হবে — উত্তর/ব্যাখ্যার ক্ষেত্রে "উত্তর" অংশ, আর
+// ভুল/সঠিকের ক্ষেত্রে "সঠিক" অংশ (কারণ ভুল তথ্যটাকে বোল্ড করে হাইলাইট
+// করার দরকার নেই)।
+const LABELED_PAIR_PATTERNS = [
+  { first: "উত্তর", second: "ব্যাখ্যা", boldFirst: true },
+  { first: "ভুল", second: "সঠিক", boldFirst: false },
+];
 
 function formatAnswerExplanation(text) {
   if (typeof text !== "string" || !text) return text;
 
-  // অনেক সময় "উত্তর: খ) গণের নাম। ব্যাখ্যা: ..." — পুরোটাই একই প্যারাগ্রাফে,
-  // কোনো বোল্ড বা লাইন-ব্রেক ছাড়াই পেস্ট হয়ে যায়। ChatGPT-তে যেমন
-  // "উত্তর: ..." অংশটা বোল্ড আর "ব্যাখ্যা: ..." আলাদা লাইনে থাকে, এখানে
-  // সেটাই স্বয়ংক্রিয়ভাবে করে দেওয়া হচ্ছে — "উত্তর"-অংশকে **বোল্ড** করে
-  // আর "ব্যাখ্যা"-অংশকে নতুন লাইনে সরিয়ে।
-  const boldLine = (line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return line;
-    if (/^\*\*[^*]+\*\*$/.test(trimmed)) return line; // আগে থেকেই বোল্ড
+  const boldPart = (part) => {
+    const trimmed = part.trim();
+    if (!trimmed) return trimmed;
+    if (/^\*\*[^*]+\*\*$/.test(trimmed)) return trimmed; // আগে থেকেই বোল্ড
     return `**${trimmed}**`;
   };
 
   return text
     .split("\n")
     .map((line) => {
-      const inlineMatch = line.match(
-        /^(\s*উত্তর\s*[:ঃ][^]*?)(\s*ব্যাখ্যা\s*[:ঃ].*)$/
-      );
+      // বুলেট ("- "/"* ") বা নম্বর ("1. ") লিস্ট-মার্কার থাকলে সেটা
+      // আলাদা করে রাখা হচ্ছে, যাতে ভাঙার পরও লিস্ট আইটেমটা ভেঙে না যায় —
+      // প্রথম অংশে মার্কারসহ প্রিফিক্স থাকবে, বাকিটা একই আইটেমের ভেতরেই
+      // নতুন লাইনে (soft line-break) বসবে, নতুন প্যারাগ্রাফ/লিস্ট হবে না।
+      const prefixMatch = line.match(/^(\s*(?:[-*+]|\d+\.)\s+)/);
+      const prefix = prefixMatch ? prefixMatch[1] : "";
+      const rest = prefix ? line.slice(prefix.length) : line;
 
-      if (inlineMatch) {
-        const answerPart = inlineMatch[1].trim();
-        const explanationPart = inlineMatch[2].trim();
+      for (const { first, second, boldFirst } of LABELED_PAIR_PATTERNS) {
+        const pattern = new RegExp(
+          `^(\\s*${first}\\s*[:ঃ][^]*?)(\\s*${second}\\s*[:ঃ].*)$`
+        );
+        const inlineMatch = rest.match(pattern);
 
-        if (answerPart && explanationPart) {
-          return `${boldLine(answerPart)}\n\n${explanationPart}`;
+        if (inlineMatch) {
+          const firstPart = inlineMatch[1].trim();
+          const secondPart = inlineMatch[2].trim();
+
+          if (firstPart && secondPart) {
+            const formattedFirst = boldFirst
+              ? boldPart(firstPart)
+              : firstPart;
+            const formattedSecond = boldFirst
+              ? secondPart
+              : boldPart(secondPart);
+
+            return `${prefix}${formattedFirst}\n${formattedSecond}`;
+          }
         }
       }
 
-      // "উত্তর: ..." আলাদা লাইনেই আছে কিন্তু বোল্ড হয়নি — এমন ক্ষেত্রেও
-      // শুধু বোল্ড করে দেওয়া হচ্ছে।
-      if (
-        /^\s*উত্তর\s*[:ঃ]/.test(line) &&
-        !/ব্যাখ্যা\s*[:ঃ]/.test(line)
-      ) {
-        return boldLine(line);
+      // জোড়া ছাড়া একা থাকা লাইনেও (যেমন শুধু "উত্তর: ..." বা শুধু
+      // "সঠিক: ...") গুরুত্বপূর্ণ অংশটা বোল্ড করে দেওয়া হচ্ছে।
+      for (const { first, second, boldFirst } of LABELED_PAIR_PATTERNS) {
+        const standaloneLabel = boldFirst ? first : second;
+        const otherLabel = boldFirst ? second : first;
+        const standalonePattern = new RegExp(
+          `^\\s*${standaloneLabel}\\s*[:ঃ]`
+        );
+        const otherPattern = new RegExp(`${otherLabel}\\s*[:ঃ]`);
+
+        if (standalonePattern.test(rest) && !otherPattern.test(rest)) {
+          return `${prefix}${boldPart(rest)}`;
+        }
       }
 
       return line;
