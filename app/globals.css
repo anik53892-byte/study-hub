@@ -332,6 +332,33 @@ body {
   color: #ffffff;
 }
 
+/* Strikethrough */
+
+.lesson-content s,
+.lesson-content del {
+  color: #b8b8c0;
+}
+
+/* =========================================================
+   CHECKLIST (GFM task list — "- [ ] " / "- [x] ")
+   ========================================================= */
+
+.lesson-content li.task-list-item,
+.lesson-content ul.contains-task-list {
+  list-style: none;
+}
+
+.lesson-content li.task-list-item {
+  margin-left: -1.4em;
+  padding-left: 0;
+}
+
+.lesson-content li.task-list-item input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: #8b7cff;
+  vertical-align: middle;
+}
+
 /* =========================================================
    INLINE CODE / CODE BLOCK
    ========================================================= */
@@ -427,6 +454,32 @@ body {
 
 .ProseMirror blockquote {
   color: #dddde5;
+}
+
+/* Editor strikethrough + inline code/code block */
+
+.ProseMirror s,
+.ProseMirror del {
+  color: #b8b8c0;
+}
+
+.ProseMirror code {
+  background: #1b1b20;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  color: #c9bfff;
+}
+
+.ProseMirror pre {
+  background: #1b1b20;
+  padding: 0.85em 1em;
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.ProseMirror pre code {
+  background: transparent;
+  padding: 0;
 }
 
 /* =========================================================
