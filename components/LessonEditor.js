@@ -11,6 +11,11 @@ import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import { DOMParser as ProseMirrorDOMParser } from "@tiptap/pm/model";
+import { markdownPlainTextToHtml } from "@/lib/pasteFormatting";
+import {
+  breakInlineListMarkers,
+  formatAnswerExplanation,
+} from "@/lib/answerFormatting";
 import { useEffect, useRef } from "react";
 
 // কখনো কখনো ChatGPT থেকে টেবিল কপি করলে আসল (রেন্ডার করা) টেবিলের বদলে
@@ -95,78 +100,6 @@ function htmlLooksAlreadyFormatted(htmlData) {
   }
 }
 
-function markdownPlainTextToHtml(text) {
-  const hasMarkdownSignal =
-    /(^|\n)[ \t]{0,3}#{1,3}[ \t]+\S/.test(text) || // # হেডিং
-    /\*\*[^*\n]+\*\*/.test(text) || // **বোল্ড**
-    /(^|\n)[ \t]{0,3}[-*][ \t]+\S/.test(text) || // - বা * বুলেট লিস্ট
-    /(^|\n)[ \t]{0,3}\d+\.[ \t]+\S/.test(text); // ১. ২. নম্বর লিস্ট
-
-  if (!hasMarkdownSignal) return null;
-
-  const escapeHtml = (s) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-  const inline = (s) =>
-    escapeHtml(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-
-  const lines = text.split("\n");
-  const htmlParts = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    const headingMatch = line.match(/^[ \t]{0,3}(#{1,3})[ \t]+(.*)$/);
-    if (headingMatch) {
-      // এডিটরে শুধু H1/H2 সাপোর্ট করা আছে (StarterKit-এ levels: [1, 2])
-      const level = Math.min(headingMatch[1].length, 2);
-      const tag = `h${level}`;
-      htmlParts.push(
-        `<${tag}>${inline(headingMatch[2].trim())}</${tag}>`
-      );
-      i += 1;
-      continue;
-    }
-
-    const bulletMatch = line.match(/^[ \t]{0,3}[-*][ \t]+(.*)$/);
-    if (bulletMatch) {
-      const items = [];
-      while (i < lines.length) {
-        const m = lines[i].match(/^[ \t]{0,3}[-*][ \t]+(.*)$/);
-        if (!m) break;
-        items.push(`<li><p>${inline(m[1].trim())}</p></li>`);
-        i += 1;
-      }
-      htmlParts.push(`<ul>${items.join("")}</ul>`);
-      continue;
-    }
-
-    const orderedMatch = line.match(/^[ \t]{0,3}\d+\.[ \t]+(.*)$/);
-    if (orderedMatch) {
-      const items = [];
-      while (i < lines.length) {
-        const m = lines[i].match(/^[ \t]{0,3}\d+\.[ \t]+(.*)$/);
-        if (!m) break;
-        items.push(`<li><p>${inline(m[1].trim())}</p></li>`);
-        i += 1;
-      }
-      htmlParts.push(`<ol>${items.join("")}</ol>`);
-      continue;
-    }
-
-    if (!line.trim()) {
-      i += 1;
-      continue;
-    }
-
-    htmlParts.push(`<p>${inline(line)}</p>`);
-    i += 1;
-  }
-
-  return htmlParts.join("");
-}
-
 function handleMarkdownTextPaste(view, event) {
   if (typeof window === "undefined" || !event.clipboardData) return false;
 
@@ -176,7 +109,14 @@ function handleMarkdownTextPaste(view, event) {
   const text = event.clipboardData.getData("text/plain");
   if (!text) return false;
 
-  const html = markdownPlainTextToHtml(text);
+  // Reader mode-এ (components/LessonMarkdown.js) "ক) খ) গ)" আর
+  // "উত্তর/ব্যাখ্যা", "ভুল/সঠিক"-এর মতো প্যাটার্ন স্বয়ংক্রিয়ভাবে আলাদা
+  // লাইনে ভেঙে বোল্ড হয়ে যায়। Editor আর Reader-এ একই কাঠামো দেখানোর
+  // জন্য, পেস্ট করার সময়েই এখানে একই রূপান্তর চালানো হচ্ছে — যাতে Done
+  // চাপার আগে-পরে ফরম্যাট না বদলায়।
+  const preformatted = formatAnswerExplanation(breakInlineListMarkers(text));
+
+  const html = markdownPlainTextToHtml(preformatted);
   if (!html) return false;
 
   const container = document.createElement("div");
@@ -209,7 +149,7 @@ export default function LessonEditor({ content, onChange }) {
     extensions: [
       StarterKit.configure({
         heading: {
-          levels: [1, 2],
+          levels: [1, 2, 3],
         },
       }),
 
@@ -422,6 +362,57 @@ function Toolbar({ editor }) {
         }
       >
         H2
+      </button>
+
+      {/* H3 */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive("heading", {
+            level: 3,
+          })
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleHeading({
+              level: 3,
+            })
+            .run()
+        }
+      >
+        H3
+      </button>
+
+      {/* Strikethrough — StarterKit-এ এক্সটেনশনটা এমনিতেই আছে, শুধু বাটন ছিল না */}
+      <button
+        type="button"
+        className={btn(editor.isActive("strike"))}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleStrike()
+            .run()
+        }
+      >
+        <span style={{ textDecoration: "line-through" }}>S</span>
+      </button>
+
+      {/* Inline code — StarterKit-এ এক্সটেনশনটা এমনিতেই আছে, শুধু বাটন ছিল না */}
+      <button
+        type="button"
+        className={btn(editor.isActive("code"))}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleCode()
+            .run()
+        }
+      >
+        {"</>"}
       </button>
 
       {/* Bullet List */}
