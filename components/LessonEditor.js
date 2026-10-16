@@ -1,389 +1,600 @@
-
 "use client";
 
-import { useMemo, createElement } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkBreaks from "remark-breaks";
-import TurndownService from "turndown";
-import { gfm as turndownGfm } from "turndown-plugin-gfm";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
+import TextAlign from "@tiptap/extension-text-align";
+import Table from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableHeader from "@tiptap/extension-table-header";
+import TableCell from "@tiptap/extension-table-cell";
+import { DOMParser as ProseMirrorDOMParser } from "@tiptap/pm/model";
+import { markdownPlainTextToHtml } from "@/lib/pasteFormatting";
 import {
   breakInlineListMarkers,
   formatAnswerExplanation,
 } from "@/lib/answerFormatting";
+import { useEffect, useRef } from "react";
 
-/* =========================================================
-   RECOVER HTML TAGS THAT WERE PASTED AS TEXT
-   ========================================================= */
+// কখনো কখনো ChatGPT থেকে টেবিল কপি করলে আসল (রেন্ডার করা) টেবিলের বদলে
+// তার HTML সোর্স কোডটাই (<table>...</table>) প্লেইন টেক্সট হিসেবে
+// ক্লিপবোর্ডে চলে আসে। স্বাভাবিকভাবে পেস্ট হলে এটা পেজে হুবহু ট্যাগ
+// আকারেই দেখা যায়। এই ফাংশন পেস্ট হওয়ার মুহূর্তেই সেই প্যাটার্নটা ধরে,
+// আর পাওয়া গেলে সেটাকে আসল টেবিলে রূপান্তর করে বসিয়ে দেয় — Tiptap-এর
+// নিজস্ব schema-bound HTML পার্সার (ProseMirrorDOMParser) দিয়ে, যা দিয়ে
+// এমনিতেও সব পেস্ট করা HTML পার্স হয়; dangerouslySetInnerHTML কোথাও
+// ব্যবহার হচ্ছে না। টেবিলের আগে/পরে অন্য কোনো লেখা থাকলে সেটা সাধারণ
+// প্যারাগ্রাফ (প্লেইন টেক্সট) হিসেবেই থেকে যায়।
+function handleTableSourcePaste(view, event) {
+  if (typeof window === "undefined" || !event.clipboardData) return false;
 
-function recoverEscapedHtmlTables(html) {
-  if (!html || typeof html !== "string") return html;
+  const text = event.clipboardData.getData("text/plain");
+  if (!text) return false;
 
-  return html.replace(
-    /&(?:amp;)*lt;(\/?(?:table|colgroup|col|thead|tbody|tfoot|tr|th|td|p)\b)([\s\S]*?)(?:&(?:amp;)*gt;|>)/gi,
-    (_match, tag, attributes) => `<${tag}${attributes}>`
-  );
-}
+  const tableMatch = /<table[\s>][\s\S]*?<\/table>/i.exec(text);
+  if (!tableMatch) return false;
 
-/* =========================================================
-   FLATTEN PARAGRAPHS INSIDE TABLE CELLS
-   ========================================================= */
+  const before = text.slice(0, tableMatch.index).trim();
+  const after = text
+    .slice(tableMatch.index + tableMatch[0].length)
+    .trim();
 
-function flattenTableCellParagraphs(html) {
-  if (
-    typeof DOMParser === "undefined" ||
-    !html ||
-    !/<table\b/i.test(html)
-  ) {
-    return html;
-  }
+  const container = document.createElement("div");
+
+  const addPlainLines = (chunk) => {
+    chunk.split(/\n+/).forEach((line) => {
+      if (!line.trim()) return;
+      const p = document.createElement("p");
+      p.textContent = line;
+      container.appendChild(p);
+    });
+  };
+
+  if (before) addPlainLines(before);
+
+  const tableHost = document.createElement("div");
+  tableHost.innerHTML = tableMatch[0];
+  const tableEl = tableHost.querySelector("table");
+  if (!tableEl) return false; // ভাঙা/অসম্পূর্ণ HTML — স্বাভাবিক পেস্টেই ছেড়ে দেওয়া হোক
+  container.appendChild(tableEl);
+
+  if (after) addPlainLines(after);
 
   try {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-
-    doc.querySelectorAll("td, th").forEach((cell) => {
-      const paragraphs = Array.from(cell.children).filter(
-        (child) => child.tagName === "P"
-      );
-
-      if (paragraphs.length <= 1) return;
-
-      const merged = paragraphs
-        .map((paragraph) => paragraph.innerHTML.trim())
-        .filter(Boolean)
-        .join(" ");
-
-      cell.innerHTML = "";
-
-      if (merged) {
-        const paragraph = doc.createElement("p");
-        paragraph.innerHTML = merged;
-        cell.appendChild(paragraph);
-      }
-    });
-
-    return doc.body.innerHTML;
+    const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(
+      container,
+      { preserveWhitespace: true }
+    );
+    view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
   } catch {
-    return html;
+    return false;
   }
+
+  event.preventDefault();
+  return true;
 }
 
-/* =========================================================
-   TABLE DATA EXTRACTION
-   ========================================================= */
+// ChatGPT থেকে লেখা কপি করলে অনেক সময় ক্লিপবোর্ডে আসল ফরম্যাট করা HTML না
+// এসে শুধু প্লেইন টেক্সট আসে, যার মধ্যে "# ", "**...**", "- " এর মতো
+// মার্কডাউন চিহ্নগুলো সরাসরি লেখা অবস্থায় থাকে। সেই টেক্সট পেস্ট করলে
+// এডিটরে ওই চিহ্নগুলোই হুবহু দেখা যায় (হেডিং/বোল্ড/লিস্ট হিসেবে রেন্ডার
+// হয় না) — কিন্তু "Done" চাপার পর রিডার পেজ যখন HTML থেকে markdown বানিয়ে
+// আবার render করে, তখন ওই একই চিহ্নগুলো ঠিকভাবে হেডিং/বোল্ড/লিস্ট হিসেবে
+// দেখায়। ফলে এডিটর আর রিডারে দুই রকম দেখা যেত। এই ফাংশন-দুটো পেস্ট হওয়ার
+// মুহূর্তেই চিহ্নগুলো ধরে, সত্যিকারের হেডিং/বোল্ড/লিস্ট element বানিয়ে
+// বসিয়ে দেয় — যাতে এডিটরেও ঠিক একই রকম ফরম্যাট করা অবস্থায় দেখা যায়।
 
-function extractTables(html) {
-  if (typeof DOMParser === "undefined") {
-    return { html, tables: [] };
-  }
-
-  const tables = [];
+function htmlLooksAlreadyFormatted(htmlData) {
+  if (!htmlData || !htmlData.trim()) return false;
+  if (typeof DOMParser === "undefined") return true; // নিশ্চিত না হলে, স্বাভাবিক পেস্টেই ছেড়ে দেওয়া নিরাপদ
 
   try {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-
-    Array.from(doc.querySelectorAll("table")).forEach((table) => {
-      const rows = Array.from(table.querySelectorAll("tr")).map(
-        (row) =>
-          Array.from(row.children)
-            .filter(
-              (cell) =>
-                cell.tagName === "TH" || cell.tagName === "TD"
-            )
-            .map((cell) => ({
-              // টেবিলের সেলগুলো turndown/markdown pipeline-এর বাইরে, সরাসরি
-              // DOM থেকে টেক্সট হিসেবে বের করা হয় — তাই এখানে আলাদা করে
-              // breakInlineListMarkers() চালাতে হচ্ছে, নাহলে সেলের ভেতরের
-              // "ক) ... খ) ... গ)..." এক লাইনেই থেকে যেত।
-              text: formatAnswerExplanation(
-                breakInlineListMarkers(cell.textContent || "")
-              ),
-              header: cell.tagName === "TH",
-              colSpan: Math.max(
-                1,
-                Number(cell.getAttribute("colspan")) || 1
-              ),
-              rowSpan: Math.max(
-                1,
-                Number(cell.getAttribute("rowspan")) || 1
-              ),
-            }))
-      );
-
-      if (!rows.length) return;
-
-      const tableIndex = tables.length;
-      tables.push({ rows });
-
-      const placeholder = doc.createElement("p");
-      placeholder.textContent = `LESSONTABLEPLACEHOLDER${tableIndex}`;
-
-      table.replaceWith(placeholder);
-    });
-
-    return {
-      html: doc.body.innerHTML,
-      tables,
-    };
+    const doc = new DOMParser().parseFromString(htmlData, "text/html");
+    return !!doc.querySelector(
+      "h1, h2, h3, h4, h5, h6, strong, b, em, i, ul, ol, table"
+    );
   } catch {
-    return { html, tables: [] };
+    return true;
   }
 }
 
-/* =========================================================
-   TURNDOWN CONFIGURATION
-   ========================================================= */
+function handleMarkdownTextPaste(view, event) {
+  if (typeof window === "undefined" || !event.clipboardData) return false;
 
-let turndownService = null;
+  const htmlData = event.clipboardData.getData("text/html");
+  if (htmlLooksAlreadyFormatted(htmlData)) return false; // আগে থেকেই ফরম্যাট করা — স্বাভাবিক পেস্টই যথেষ্ট
 
-function getTurndownService() {
-  if (turndownService) return turndownService;
+  const text = event.clipboardData.getData("text/plain");
+  if (!text) return false;
 
-  turndownService = new TurndownService({
-    headingStyle: "atx",
-    bulletListMarker: "-",
-    codeBlockStyle: "fenced",
-  });
+  // Reader mode-এ (components/LessonMarkdown.js) "ক) খ) গ)" আর
+  // "উত্তর/ব্যাখ্যা", "ভুল/সঠিক"-এর মতো প্যাটার্ন স্বয়ংক্রিয়ভাবে আলাদা
+  // লাইনে ভেঙে বোল্ড হয়ে যায়। Editor আর Reader-এ একই কাঠামো দেখানোর
+  // জন্য, পেস্ট করার সময়েই এখানে একই রূপান্তর চালানো হচ্ছে — যাতে Done
+  // চাপার আগে-পরে ফরম্যাট না বদলায়।
+  const preformatted = formatAnswerExplanation(breakInlineListMarkers(text));
 
-  turndownService.use(turndownGfm);
+  const html = markdownPlainTextToHtml(preformatted);
+  if (!html) return false;
 
-  // Preserve intentionally typed Markdown markers.
-  turndownService.escape = (text) => text;
+  const container = document.createElement("div");
+  container.innerHTML = html;
 
-  turndownService.addRule("paragraph", {
-    filter: "p",
-
-    replacement(content, node) {
-      const parentTag = node.parentNode?.nodeName;
-
-      if (parentTag === "TD" || parentTag === "TH") {
-        return content;
-      }
-
-      if (/^LESSONTABLEPLACEHOLDER\d+$/.test(content.trim())) {
-        return `\n\n${content.trim()}\n\n`;
-      }
-
-      // যখন টেবিল আসল <table> element না হয়ে, ChatGPT থেকে সরাসরি
-      // Markdown-এর "| ... |" লেখা হিসেবে পেস্ট হয়, তখন সেই পাইপ-লাইনগুলো
-      // আর তার ঠিক পরের সাধারণ বাক্যটা — দুটোই আলাদা <p> হিসেবে আসে, আর
-      // উপরের নিয়মে দুটোর মাঝে মাত্র ১টা নতুন লাইন থাকে (টেবিলের সারিগুলো
-      // একটানা রাখার জন্যই এটা দরকার)। কিন্তু remark-gfm-কে স্পষ্টভাবে
-      // বোঝাতে হয় টেবিলটা কোথায় শেষ হচ্ছে, নাহলে পরের সাধারণ বাক্যটাও
-      // টেবিলের আরেকটা (ভাঙা) সারি হিসেবে ধরে নেয় — এটাই "লম্বা সারি"
-      // সমস্যাটার কারণ। তাই পাইপযুক্ত (টেবিলের মতো) লাইনের ঠিক পরে যদি
-      // পাইপবিহীন (সাধারণ) লাইন আসে, তাদের মাঝে একটা ফাঁকা লাইন জোর
-      // করে বসানো হচ্ছে, যাতে টেবিলটা ওখানেই স্পষ্টভাবে শেষ হয়।
-      const trimmed = content.trim();
-      const prevSibling = node.previousElementSibling;
-      const prevText =
-        prevSibling && prevSibling.nodeName === "P"
-          ? prevSibling.textContent
-          : "";
-      const prevLooksLikeTableRow = /\|/.test(prevText);
-      const thisLooksLikeTableRow = /\|/.test(trimmed);
-
-      if (prevLooksLikeTableRow && !thisLooksLikeTableRow) {
-        return content ? `\n${content}\n` : "";
-      }
-
-      return content ? `${content}\n` : "";
-    },
-  });
-
-  turndownService.remove(["colgroup", "col"]);
-
-  return turndownService;
-}
-
-/* =========================================================
-   TABLE CELL INLINE FORMATTING (**বোল্ড** + লাইন-ব্রেক)
-   ========================================================= */
-
-function renderInlineCellText(text, keyPrefix) {
-  if (typeof text !== "string" || !text) return text;
-
-  // টেবিলের সেল রেন্ডার হয় সরাসরি DOM টেক্সট থেকে (ReactMarkdown/remark-gfm
-  // পার্স করে না), তাই formatAnswerExplanation() যে "**...**" বসিয়ে দেয়
-  // সেটা এমনিতে প্লেইন টেক্সট হিসেবেই দেখাতো (তারকাচিহ্নসহ)। এখানে
-  // "**...**" অংশটুকু <strong> হিসেবে আর "\n" অংশটুকু <br> হিসেবে
-  // আলাদা করে রেন্ডার করা হচ্ছে।
-  const lines = text.split("\n");
-
-  return lines.flatMap((line, lineIndex) => {
-    const parts = line
-      .split(/(\*\*[^*]+\*\*)/g)
-      .filter((part) => part !== "");
-
-    const nodes = parts.map((part, partIndex) => {
-      const boldMatch = part.match(/^\*\*([^*]+)\*\*$/);
-      if (boldMatch) {
-        return createElement(
-          "strong",
-          { key: `${keyPrefix}-b-${lineIndex}-${partIndex}` },
-          boldMatch[1]
-        );
-      }
-      return part;
-    });
-
-    if (lineIndex < lines.length - 1) {
-      nodes.push(
-        createElement("br", { key: `${keyPrefix}-br-${lineIndex}` })
-      );
-    }
-
-    return nodes;
-  });
-}
-
-/* =========================================================
-   TABLE RENDERER
-   ========================================================= */
-
-function renderTable(table, tableIndex) {
-  return createElement(
-    "div",
-    {
-      key: `lesson-table-wrapper-${tableIndex}`,
-      className: "lesson-table-wrapper",
-    },
-    createElement(
-      "table",
-      { className: "lesson-table" },
-      createElement(
-        "tbody",
-        null,
-        table.rows.map((row, rowIndex) =>
-          createElement(
-            "tr",
-            { key: `row-${rowIndex}` },
-            row.map((cell, cellIndex) => {
-              const tag = cell.header ? "th" : "td";
-
-              return createElement(
-                tag,
-                {
-                  key: `cell-${rowIndex}-${cellIndex}`,
-                  colSpan: cell.colSpan,
-                  rowSpan: cell.rowSpan,
-                },
-                renderInlineCellText(
-                  cell.text,
-                  `cell-${rowIndex}-${cellIndex}`
-                )
-              );
-            })
-          )
-        )
-      )
-    )
-  );
-}
-
-/* =========================================================
-   MAIN COMPONENT
-   ========================================================= */
-
-export default function LessonMarkdown({ html }) {
-  const { markdown, tables } = useMemo(() => {
-    if (!html || typeof html !== "string") {
-      return { markdown: "", tables: [] };
-    }
-
-    try {
-      const recovered = recoverEscapedHtmlTables(html);
-      const flattened = flattenTableCellParagraphs(recovered);
-      const extracted = extractTables(flattened);
-      const converted = getTurndownService().turndown(extracted.html);
-
-      return {
-        markdown: formatAnswerExplanation(breakInlineListMarkers(converted)),
-        tables: extracted.tables,
-      };
-    } catch (err) {
-      // স্বাভাবিক turndown/টেবিল-এক্সট্র্যাকশন পাইপলাইনে কোনো কারণে সমস্যা
-      // হলে (যেমন কিছু অপ্রত্যাশিত HTML গঠন), আগে এখানে পুরো ফরম্যাটিং
-      // (ভুল/সঠিক বোল্ড+ভাঙা, ক)/খ)/গ) আলাদা লাইনে) বাদ দিয়ে শুধু ট্যাগ
-      // মুছে কাঁচা টেক্সট দেখানো হতো — এটাই "এক লাইনে, ফরম্যাট ছাড়া"
-      // দেখানোর একটা সম্ভাব্য কারণ। এখন fallback-এও একই ফরম্যাটিং পাস
-      // চালানো হচ্ছে, যাতে মূল pipeline ব্যর্থ হলেও ভুল/সঠিক অন্তত
-      // বোল্ড+আলাদা লাইনে দেখা যায়।
-      if (typeof window !== "undefined" && window.console) {
-        console.error("LessonMarkdown: falling back to plain text render", err);
-      }
-      const stripped = html.replace(/<[^>]*>/g, " ").trim();
-      return {
-        markdown: formatAnswerExplanation(breakInlineListMarkers(stripped)),
-        tables: [],
-      };
-    }
-  }, [html]);
-
-  if (!markdown.trim() && tables.length === 0) {
-    return null;
+  try {
+    const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(
+      container,
+      { preserveWhitespace: true }
+    );
+    view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+  } catch {
+    return false;
   }
 
-  return createElement(
-    "div",
-    {
-      className: "lesson-content-scroll",
-      role: "region",
-      "aria-label": "পাঠের সম্পূর্ণ কনটেন্ট",
-      tabIndex: 0,
-    },
-    createElement(
-      "div",
-      {
-        className: "lesson-content",
-      },
-      createElement(
-        ReactMarkdown,
-        {
-          remarkPlugins: [remarkGfm, remarkBreaks],
+  event.preventDefault();
+  return true;
+}
 
-          components: {
-            p({ children, ...props }) {
-              if (typeof children === "string") {
-                const match = children.match(
-                  /^LESSONTABLEPLACEHOLDER(\d+)$/
-                );
+export default function LessonEditor({ content, onChange }) {
+  // Tracks the content we last pushed INTO the editor (either on load, or a
+  // moment ago when this exact prop arrived). Used to tell "the parent gave us
+  // a different lesson's text" apart from "the user is typing and onUpdate
+  // echoed back through the content prop" — those must be handled differently,
+  // or switching lessons/folders without a full remount can leave stale text
+  // from the previous one sitting in the editor.
+  const lastSyncedRef = useRef(content ?? "");
 
-                if (match) {
-                  const index = Number(match[1]);
-                  const table = tables[index];
-
-                  if (table) {
-                    return renderTable(table, index);
-                  }
-                }
-              }
-
-              return createElement("p", props, children);
-            },
-
-            // কিছু টেবিল আসল HTML <table> হিসেবে না এসে, ChatGPT থেকে
-            // সরাসরি Markdown-এর "| ... |" লেখা হিসেবে পেস্ট হয় (কোনো
-            // real <table> element থাকে না)। সেগুলো extractTables()-এর
-            // হাত এড়িয়ে সরাসরি remark-gfm দিয়ে পার্স হয়ে এখানে আসে —
-            // তখন এই "table" component-টা চলে, যেটা একই "lesson-table"
-            // ক্লাস আর স্ক্রল-wrapper বসিয়ে দেয়, যাতে HTML থেকে আসা আর
-            // Markdown থেকে আসা — দুই ধরনের টেবিলই একই রকম দেখতে লাগে।
-            table({ children }) {
-              return createElement(
-                "div",
-                { className: "lesson-table-wrapper" },
-                createElement(
-                  "table",
-                  { className: "lesson-table" },
-                  children
-                )
-              );
-            },
-          },
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
         },
-        markdown
-      )
-    )
+      }),
+
+      Underline,
+
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+      }),
+
+      Placeholder.configure({
+        placeholder: "Start writing your lesson…",
+      }),
+
+      TextAlign.configure({
+        types: ["heading", "paragraph"],
+      }),
+
+      Table.configure({
+        resizable: true,
+      }),
+
+      TableRow,
+      TableHeader,
+      TableCell,
+    ],
+
+    content: content || "",
+
+    editorProps: {
+      attributes: {
+        class:
+          "lesson-content px-4 py-4 focus:outline-none",
+      },
+
+      transformPastedHTML(html) {
+        return html;
+      },
+
+      handlePaste(view, event) {
+        if (handleTableSourcePaste(view, event)) return true;
+        return handleMarkdownTextPaste(view, event);
+      },
+    },
+
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML();
+      lastSyncedRef.current = html;
+      onChange(html, editor.getText());
+    },
+
+    immediatelyRender: false,
+  });
+
+  // Whenever the `content` prop changes to something we didn't just write
+  // ourselves (i.e. a different lesson/folder was loaded, not our own typing
+  // echoing back), replace the editor's content — regardless of whether the
+  // editor currently looks "empty". This is what prevents one lesson's text
+  // from lingering when you switch to another without the component remounting.
+  useEffect(() => {
+    if (!editor) return;
+    const next = content ?? "";
+    if (next !== lastSyncedRef.current) {
+      lastSyncedRef.current = next;
+      editor.commands.setContent(next, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, content]);
+
+  if (!editor) return null;
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: "#111113",
+        border: "1px solid #242428",
+        boxShadow:
+          "0 8px 30px rgba(0, 0, 0, 0.35)",
+      }}
+    >
+      <Toolbar editor={editor} />
+
+      <div
+        className="max-h-[65vh] overflow-y-auto"
+        style={{
+          background: "#111113",
+        }}
+      >
+        <EditorContent editor={editor} />
+      </div>
+    </div>
   );
 }
+
+function Toolbar({ editor }) {
+  const btn = (active) =>
+    [
+      "w-9",
+      "h-9",
+      "rounded-lg",
+      "flex",
+      "items-center",
+      "justify-center",
+      "text-sm",
+      "font-medium",
+      "shrink-0",
+      "transition-colors",
+      active
+        ? "bg-violet-500 text-white"
+        : "bg-[#1B1B20] text-[#D7D7DF] hover:bg-[#25252B]",
+    ].join(" ");
+
+  return (
+    <div
+      className="flex gap-1.5 overflow-x-auto p-2"
+      style={{
+        borderBottom: "1px solid #29292F",
+        background: "#18181C",
+      }}
+    >
+      {/* Bold */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive("bold")
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleBold()
+            .run()
+        }
+      >
+        B
+      </button>
+
+      {/* Italic */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive("italic")
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleItalic()
+            .run()
+        }
+      >
+        I
+      </button>
+
+      {/* Underline */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive("underline")
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleUnderline()
+            .run()
+        }
+      >
+        U
+      </button>
+
+      {/* H1 */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive("heading", {
+            level: 1,
+          })
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleHeading({
+              level: 1,
+            })
+            .run()
+        }
+      >
+        H1
+      </button>
+
+      {/* H2 */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive("heading", {
+            level: 2,
+          })
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleHeading({
+              level: 2,
+            })
+            .run()
+        }
+      >
+        H2
+      </button>
+
+      {/* H3 */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive("heading", {
+            level: 3,
+          })
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleHeading({
+              level: 3,
+            })
+            .run()
+        }
+      >
+        H3
+      </button>
+
+      {/* Strikethrough — StarterKit-এ এক্সটেনশনটা এমনিতেই আছে, শুধু বাটন ছিল না */}
+      <button
+        type="button"
+        className={btn(editor.isActive("strike"))}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleStrike()
+            .run()
+        }
+      >
+        <span style={{ textDecoration: "line-through" }}>S</span>
+      </button>
+
+      {/* Inline code — StarterKit-এ এক্সটেনশনটা এমনিতেই আছে, শুধু বাটন ছিল না */}
+      <button
+        type="button"
+        className={btn(editor.isActive("code"))}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleCode()
+            .run()
+        }
+      >
+        {"</>"}
+      </button>
+
+      {/* Bullet List */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive("bulletList")
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleBulletList()
+            .run()
+        }
+      >
+        • List
+      </button>
+
+      {/* Ordered List */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive("orderedList")
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleOrderedList()
+            .run()
+        }
+      >
+        1. List
+      </button>
+
+      {/* Blockquote */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive("blockquote")
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .toggleBlockquote()
+            .run()
+        }
+      >
+        "
+      </button>
+
+      {/* Link */}
+      <button
+        type="button"
+        className={btn(false)}
+        onClick={() => {
+          const url = window.prompt(
+            "Link URL"
+          );
+
+          if (url) {
+            editor
+              .chain()
+              .focus()
+              .setLink({
+                href: url,
+              })
+              .run();
+          }
+        }}
+      >
+        🔗
+      </button>
+
+      {/* Table */}
+      <button
+        type="button"
+        className={btn(false)}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .insertTable({
+              rows: 3,
+              cols: 3,
+              withHeaderRow: true,
+            })
+            .run()
+        }
+      >
+        ▦
+      </button>
+
+      {/* Align Left */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive({
+            textAlign: "left",
+          })
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .setTextAlign("left")
+            .run()
+        }
+      >
+        ⯇
+      </button>
+
+      {/* Align Center */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive({
+            textAlign: "center",
+          })
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .setTextAlign("center")
+            .run()
+        }
+      >
+        ⯀
+      </button>
+
+      {/* Align Right */}
+      <button
+        type="button"
+        className={btn(
+          editor.isActive({
+            textAlign: "right",
+          })
+        )}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .setTextAlign("right")
+            .run()
+        }
+      >
+        ⯈
+      </button>
+
+      {/* Undo */}
+      <button
+        type="button"
+        className={btn(false)}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .undo()
+            .run()
+        }
+      >
+        ↺
+      </button>
+
+      {/* Redo */}
+      <button
+        type="button"
+        className={btn(false)}
+        onClick={() =>
+          editor
+            .chain()
+            .focus()
+            .redo()
+            .run()
+        }
+      >
+        ↻
+      </button>
+    </div>
+  );
+          }
+          
