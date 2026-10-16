@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, createElement } from "react";
@@ -301,9 +300,20 @@ export default function LessonMarkdown({ html }) {
         markdown: formatAnswerExplanation(breakInlineListMarkers(converted)),
         tables: extracted.tables,
       };
-    } catch {
+    } catch (err) {
+      // স্বাভাবিক turndown/টেবিল-এক্সট্র্যাকশন পাইপলাইনে কোনো কারণে সমস্যা
+      // হলে (যেমন কিছু অপ্রত্যাশিত HTML গঠন), আগে এখানে পুরো ফরম্যাটিং
+      // (ভুল/সঠিক বোল্ড+ভাঙা, ক)/খ)/গ) আলাদা লাইনে) বাদ দিয়ে শুধু ট্যাগ
+      // মুছে কাঁচা টেক্সট দেখানো হতো — এটাই "এক লাইনে, ফরম্যাট ছাড়া"
+      // দেখানোর একটা সম্ভাব্য কারণ। এখন fallback-এও একই ফরম্যাটিং পাস
+      // চালানো হচ্ছে, যাতে মূল pipeline ব্যর্থ হলেও ভুল/সঠিক অন্তত
+      // বোল্ড+আলাদা লাইনে দেখা যায়।
+      if (typeof window !== "undefined" && window.console) {
+        console.error("LessonMarkdown: falling back to plain text render", err);
+      }
+      const stripped = html.replace(/<[^>]*>/g, " ").trim();
       return {
-        markdown: html.replace(/<[^>]*>/g, " ").trim(),
+        markdown: formatAnswerExplanation(breakInlineListMarkers(stripped)),
         tables: [],
       };
     }
