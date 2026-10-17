@@ -39,7 +39,7 @@ body {
   min-width: 0;
   box-sizing: border-box;
 
-  font-size: 17px;
+  font-size: 19px;
   line-height: 1.85;
   color: #ffffff;
   letter-spacing: 0.1px;
@@ -53,7 +53,7 @@ body {
 .lesson-content h1 {
   max-width: 100%;
   box-sizing: border-box;
-  font-size: 1.4rem;
+  font-size: 1.4em;
   font-weight: 700;
   margin: 1.3em 0 0.5em;
   color: #ffffff;
@@ -66,7 +66,7 @@ body {
 .lesson-content h2 {
   max-width: 100%;
   box-sizing: border-box;
-  font-size: 1.2rem;
+  font-size: 1.2em;
   font-weight: 700;
   margin: 1.1em 0 0.45em;
   color: #ffffff;
@@ -82,7 +82,7 @@ body {
 .lesson-content h6 {
   max-width: 100%;
   box-sizing: border-box;
-  font-size: 1.05rem;
+  font-size: 1.08em;
   font-weight: 700;
   margin: 1em 0 0.4em;
   color: #ffffff;
@@ -299,7 +299,7 @@ body {
 
 @media (max-width: 480px) {
   .lesson-content {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .lesson-content .lesson-table {
