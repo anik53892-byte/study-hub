@@ -39,7 +39,7 @@ body {
   min-width: 0;
   box-sizing: border-box;
 
-  font-size: 21px;
+  font-size: 22px;
   line-height: 1.85;
   color: #ffffff;
   letter-spacing: 0.1px;
@@ -299,7 +299,7 @@ body {
 
 @media (max-width: 480px) {
   .lesson-content {
-    font-size: 20px;
+    font-size: 21px;
   }
 
   .lesson-content .lesson-table {
